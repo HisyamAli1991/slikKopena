@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e3c72">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>CS Cahaya</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-database-compat.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
+body { background:#f0f2f5; padding:10px; min-height:100vh; }
+.container { max-width:700px; margin:0 auto; background:white; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.1); overflow:hidden; }
+.header { background:linear-gradient(135deg,#1e3c72,#2a5298); color:white; padding:20px; text-align:center; }
+.header h1 { font-size:1.3em; display:flex; align-items:center; justify-content:center; gap:8px; }
+.header .header-logo { width:32px; height:32px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.8); flex-shrink:0; }
+.header p { font-size:0.85em; margin-top:5px; opacity:0.9; }
+
+/* Status Bar */
+.status-bar { background:#fff3cd; border-bottom:2px solid #ffc107; padding:10px; text-align:center; font-size:0.85em; color:#856404; display:none; }
+.status-bar.show { display:block; }
+.status-bar.error { background:#f8d7da; border-color:#f5c6cb; color:#721c24; }
+.status-bar.success { background:#d4edda; border-color:#c3e6cb; color:#155724; }
+
+.nav { display:flex; background:#f8f9fa; border-bottom:2px solid #ddd; }
+.nav-btn { flex:1; padding:12px; border:none; background:transparent; cursor:pointer; font-weight:bold; color:#666; border-bottom:3px solid transparent; }
+.nav-btn.active { color:#1e3c72; border-bottom-color:#1e3c72; background:white; }
+
+.page { display:none; padding:20px; }
+.page.active { display:block; }
+
+.section { border:1px solid #ddd; border-radius:8px; padding:15px; margin-bottom:15px; }
+.section h3 { color:#1e3c72; margin-bottom:10px; border-bottom:2px solid #1e3c72; padding-bottom:5px; font-size:1em; }
+
+.photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.photo-box { text-align:center; }
+.photo-frame {
+    width:100%;
+    aspect-ratio: 3/4;
+    border:2px dashed #1e3c72;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    background:#f8f9fa;
+    overflow:hidden;
+}
+.photo-frame img { width:100%; height:100%; object-fit:cover; }
+.photo-frame .placeholder { color:#666; font-size:0.85em; text-align:center; padding:10px; }
+
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-weight:bold; margin-bottom:5px; color:#333; font-size:0.9em; }
+.form-group input { width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:0.9em; }
+
+.btn { padding:10px 18px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:3px; font-size:0.85em; }
+.btn-blue { background:#1e3c72; color:white; }
+.btn-green { background:#28a745; color:white; }
+.btn-red { background:#dc3545; color:white; }
+.btn-yellow { background:#ffc107; color:#333; }
+.btn-gray { background:#6c757d; color:white; }
+
+.geo-info { background:#f0f4f8; padding:10px; border-radius:5px; font-size:0.85em; margin-top:10px; }
+.geo-info div { margin-bottom:3px; }
+
+.list-item {
+    background:white;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:12px;
+    margin-bottom:10px;
+    cursor:pointer;
+    transition:all 0.2s;
+    display:flex;
+    gap:12px;
+    align-items:center;
+}
+.list-item:hover { background:#f0f4f8; transform:translateX(3px); }
+.list-thumb { width:60px; height:80px; border-radius:5px; background:#f0f0f0; object-fit:cover; flex-shrink:0; }
+.list-info { flex:1; min-width:0; }
+.list-info .nama { font-weight:bold; color:#1e3c72; font-size:0.95em; }
+.list-info .nomor { font-size:0.8em; color:#666; margin-top:3px; }
+.list-info .waktu { font-size:0.75em; color:#999; margin-top:3px; }
+
+.empty-list { text-align:center; padding:40px 20px; color:#999; }
+.empty-list .icon { font-size:3em; margin-bottom:10px; }
+
+.detail-card { background:white; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:15px; }
+.detail-card h3 { color:#1e3c72; margin-bottom:15px; border-bottom:2px solid #1e3c72; padding-bottom:8px; }
+.detail-row { display:flex; padding:8px 0; border-bottom:1px solid #f0f0f0; }
+.detail-row:last-child { border-bottom:none; }
+.detail-label { font-weight:bold; color:#555; width:140px; flex-shrink:0; font-size:0.9em; }
+.detail-value { color:#333; font-size:0.9em; flex:1; }
+.detail-photos { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:10px; }
+.detail-photos-main { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:10px; }
+.detail-photos-single { max-width:260px; margin:15px auto 0; }
+.detail-photo-box { text-align:center; }
+.detail-photo-box img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:8px; border:2px solid #1e3c72; }
+.detail-photo-box .caption { margin-top:5px; font-weight:bold; color:#1e3c72; font-size:0.9em; }
+
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center; }
+.modal.active { display:flex; }
+.modal-content { background:white; padding:15px; border-radius:10px; max-width:400px; width:90%; text-align:center; }
+.modal-content h3 { margin-bottom:10px; color:#1e3c72; }
+
+#camVideo { width:100%; aspect-ratio: 3/4; object-fit:cover; border-radius:8px; background:black; }
+
+.upload-area { border:2px dashed #1e3c72; border-radius:8px; padding:20px; text-align:center; cursor:pointer; background:#f8f9fa; }
+.upload-area:hover { background:#e8eef5; }
+.file-item { background:#f0f4f8; padding:8px; margin-top:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center; font-size:0.85em; }
+
+.toast { position:fixed; top:20px; right:20px; padding:12px 20px; border-radius:8px; color:white; font-weight:bold; z-index:2000; transform:translateX(400px); transition:transform 0.3s; max-width:300px; }
+.toast.show { transform:translateX(0); }
+.toast.success { background:#28a745; }
+.toast.error { background:#dc3545; }
+.toast.info { background:#17a2b8; }
+
+@media print {
+    body { background:white; padding:0; }
+    .container { box-shadow:none; max-width:100%; }
+    .nav, .btn, .no-print, .status-bar, .toast { display:none !important; }
+    .page { display:none !important; }
+    #pageDetail { display:block !important; padding:0; }
+    .detail-card { border:none; padding:10px 0; }
+    .detail-photos-main { display:flex !important; gap:10px; page-break-inside:avoid; }
+    .detail-photos-main .detail-photo-box { flex:1 1 48%; max-width:49%; }
+    .detail-photos-main .detail-photo-box img { aspect-ratio:auto; max-height:11cm; width:100%; height:auto; object-fit:cover; }
+    .detail-photos-single { max-width:6cm; page-break-inside:avoid; }
+    .detail-photos-single img { max-height:7cm; width:100%; height:auto; object-fit:cover; }
+    @page { margin:1.5cm; size:A4 portrait; }
+    .print-header { display:block !important; text-align:center; border-bottom:3px double #333; padding-bottom:10px; margin-bottom:15px; }
+    .print-header h2 { font-size:1.3em; }
+}
+.print-header { display:none; }
+
+@media (max-width:600px) {
+    .photo-grid { grid-template-columns:1fr; }
+    .detail-row { flex-direction:column; }
+    .detail-label { width:100%; margin-bottom:3px; }
+}
+@media not print and (max-width:600px) {
+    .detail-photos { grid-template-columns:1fr; }
+    .detail-photos-main { grid-template-columns:1fr; }
+}
+
+/* PIN Gate */
+.pin-gate { position:fixed; inset:0; background:linear-gradient(135deg,#1e3c72,#2a5298); display:flex; align-items:center; justify-content:center; z-index:5000; padding:20px; }
+.pin-gate.hidden { display:none; }
+.pin-box { background:white; border-radius:12px; padding:30px 25px; max-width:320px; width:100%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.3); }
+.pin-box h2 { color:#1e3c72; margin-bottom:8px; font-size:1.2em; }
+.pin-box p { color:#666; font-size:0.85em; margin-bottom:20px; }
+.pin-box input { width:100%; padding:14px; border:2px solid #ddd; border-radius:8px; font-size:1.4em; text-align:center; letter-spacing:8px; margin-bottom:12px; }
+.pin-box input:focus { border-color:#1e3c72; outline:none; }
+.pin-box .pin-error { color:#dc3545; font-size:0.85em; margin-bottom:10px; min-height:18px; }
+body.locked .container, body.locked .toast { display:none !important; }
+</style>
+</head>
+<body class="locked">
+
+<!-- PIN Gate -->
+<div class="pin-gate no-print" id="pinGate">
+    <div class="pin-box">
+        <h2>🔒 Akses Terbatas</h2>
+        <p>Masukkan kode akses untuk membuka aplikasi</p>
+        <input type="password" id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••••" autofocus onkeypress="if(event.key==='Enter')checkPin()">
+        <div class="pin-error" id="pinError"></div>
+        <button class="btn btn-blue" style="width:100%;padding:12px;" onclick="checkPin()">Masuk</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="container">
+    <div class="header">
+        <h1><img src="icon-192.png" class="header-logo" alt="Logo CS Cahaya"> CS Cahaya</h1>
+        <p id="headerTime">Memuat...</p>
+    </div>
+
+    <!-- ⭐ STATUS BAR - PENTING! -->
+    <div class="status-bar" id="statusBar">
+        <span id="statusText"></span>
+    </div>
+
+    <div class="nav no-print">
+        <button class="nav-btn active" onclick="showPage('form',this)">➕ Input Baru</button>
+        <button class="nav-btn" onclick="showPage('list',this)">📋 Daftar (<span id="countList">0</span>)</button>
+    </div>
+
+    <!-- PAGE FORM -->
+    <div class="page active" id="pageForm">
+        <div class="section">
+            <h3>📷 Foto Pencairan (Portrait)</h3>
+            
+            <!-- ⭐ PENTING: Tombol Upload dulu, Kamera sebagai alternatif -->
+            <div style="background:#e7f3ff; border-left:4px solid #1e3c72; padding:10px; margin-bottom:15px; font-size:0.85em; border-radius:5px;">
+                💡 <b>Tips:</b> Klik foto untuk langsung buka <b>kamera</b> (butuh server HTTPS). Gunakan link <b>Pilih dari galeri</b> untuk memakai foto yang sudah ada.
+            </div>
+            
+            <div class="photo-grid">
+                <div class="photo-box">
+                    <label>👤 Foto Suami</label>
+                    <div class="photo-frame" onclick="openCamera('suami')">
+                        <span class="placeholder" id="phSuami">📷<br>Klik untuk buka kamera</span>
+                        <img id="imgSuami" style="display:none;">
+                    </div>
+                    <div style="text-align:center;margin-top:5px;">
+                        <a href="javascript:void(0)" onclick="document.getElementById('fileSuami').click()" style="font-size:0.8em;color:#2a5298;text-decoration:underline;">📁 Pilih dari galeri</a>
+                    </div>
+                    <input type="file" id="fileSuami" accept="image/*" style="display:none;" onchange="handlePhoto(event,'suami')">
+                </div>
+                <div class="photo-box">
+                    <label>👤 Foto Istri</label>
+                    <div class="photo-frame" onclick="openCamera('istri')">
+                        <span class="placeholder" id="phIstri">📷<br>Klik untuk buka kamera</span>
+                        <img id="imgIstri" style="display:none;">
+                    </div>
+                    <div style="text-align:center;margin-top:5px;">
+                        <a href="javascript:void(0)" onclick="document.getElementById('fileIstri').click()" style="font-size:0.8em;color:#2a5298;text-decoration:underline;">📁 Pilih dari galeri</a>
+                    </div>
+                    <input type="file" id="fileIstri" accept="image/*" style="display:none;" onchange="handlePhoto(event,'istri')">
+                </div>
+            </div>
+
+            <div class="geo-info">
+                <div><b>📅 Tanggal:</b> <span id="gDate">-</span></div>
+                <div><b>🕐 Waktu:</b> <span id="gTime">-</span></div>
+                <div><b>🌐 Latitude:</b> <span id="gLat">-</span></div>
+                <div><b>🌐 Longitude:</b> <span id="gLng">-</span></div>
+                <div><b>📍 Alamat:</b> <span id="gAddr">-</span></div>
+                <div><b>📡 Status:</b> <span id="gStatus">Memuat...</span></div>
+                <button class="btn btn-blue" onclick="getGPS()" style="margin-top:8px;">🔄 Refresh Lokasi</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📝 Data Pembiayaan</h3>
+            <div class="upload-area" onclick="openCamera('ocr')" style="margin-bottom:4px;">
+                🔎 <b>Scan Otomatis dari Foto</b><br>
+                <small>Ambil foto lembar cetak data pembiayaan, sistem akan membaca &amp; mengisi otomatis</small>
+            </div>
+            <div style="text-align:center;margin-bottom:12px;">
+                <a href="javascript:void(0)" onclick="document.getElementById('fileOcr').click()" style="font-size:0.82em;color:#2a5298;text-decoration:underline;">📁 Atau pilih foto dari galeri</a>
+            </div>
+            <input type="file" id="fileOcr" accept="image/*" style="display:none;" onchange="handleOcrScan(event)">
+            <div id="ocrPreviewBox" style="display:none;text-align:center;margin-bottom:12px;">
+                <img id="imgOcrPreview" style="max-width:180px;max-height:180px;border-radius:8px;border:2px solid #2a5298;">
+                <div style="font-size:0.78em;color:#666;margin-top:4px;">Foto lembar data (ikut tersimpan &amp; tampil di laporan)</div>
+            </div>
+            <div id="ocrStatus" style="display:none;font-size:0.85em;padding:8px 10px;border-radius:6px;margin-bottom:12px;"></div>
+            <div class="form-group">
+                <label>Nama Pembiayaan</label>
+                <input type="text" id="nama" placeholder="Masukkan nama...">
+            </div>
+            <div class="form-group">
+                <label>Nomor Pembiayaan</label>
+                <input type="text" id="nomor" placeholder="Masukkan nomor pembiayaan...">
+            </div>
+            <div class="form-group">
+                <label>Nomor Rekening Sukarela</label>
+                <input type="text" id="rek" placeholder="Masukkan nomor rekening...">
+            </div>
+            <div class="form-group">
+                <label>Nominal Plafond</label>
+                <input type="text" inputmode="numeric" id="plafond" placeholder="Contoh: 11.000.000">
+            </div>
+            <div class="form-group">
+                <label>Jumlah Bulan</label>
+                <input type="text" inputmode="numeric" id="bulan" placeholder="Contoh: 12">
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📎 Agunan & Jaminan (File Scan)</h3>
+            <div class="upload-area" onclick="document.getElementById('fileScan').click()">
+                📄 <b>Klik untuk upload file scan</b><br>
+                <small>JPG, PNG, PDF (Maks 10MB)</small>
+            </div>
+            <input type="file" id="fileScan" accept="image/*,.pdf" multiple style="display:none;" onchange="handleScan(event)">
+            <div id="scanList"></div>
+        </div>
+
+        <div style="text-align:center; padding:10px;">
+            <button class="btn btn-green" onclick="submitForm()" style="padding:15px 40px; font-size:1em;">💾 SIMPAN PENCAIRAN</button>
+            <button class="btn btn-red" onclick="resetForm()">🔄 Reset</button>
+        </div>
+    </div>
+
+    <!-- PAGE LIST -->
+    <div class="page" id="pageList">
+        <div class="section">
+            <h3>📋 Daftar Pencairan</h3>
+            <div id="listContainer"></div>
+        </div>
+    </div>
+
+    <!-- PAGE DETAIL -->
+    <div class="page" id="pageDetail">
+        <div class="no-print" style="margin-bottom:15px;">
+            <button class="btn btn-gray" onclick="showPage('list',document.querySelectorAll('.nav-btn')[1])">← Kembali</button>
+            <button class="btn btn-blue" id="btnPrint" onclick="siapkanCetak()">🖨️ PRINT</button>
+            <button class="btn btn-red" onclick="deleteCurrent()">🗑️ Hapus</button>
+        </div>
+
+        <div class="print-header">
+            <h2>DATA PENCAIRAN PEMBIAYAAN</h2>
+            <p>Dokumen Resmi Pencairan</p>
+        </div>
+
+        <div id="detailContent"></div>
+    </div>
+</div>
+
+<!-- Camera Modal -->
+<div class="modal" id="camModal">
+    <div class="modal-content">
+        <h3 id="camTitle">Ambil Foto</h3>
+        <video id="camVideo" autoplay playsinline></video>
+        <canvas id="camCanvas" style="display:none;"></canvas>
+        <div style="margin-top:10px;">
+            <button class="btn btn-green" onclick="capture()">📸 Ambil Foto</button>
+            <button class="btn btn-red" onclick="closeCam()">✖ Tutup</button>
+        </div>
+    </div>
+</div>
+
+<!-- Camera Modal -->
+<div class="modal" id="camModal">
+    <div class="modal-content">
+        <h3 id="camTitle">Ambil Foto</h3>
+        <video id="camVideo" autoplay playsinline></video>
+        <canvas id="camCanvas" style="display:none;"></canvas>
+        <div style="margin-top:10px;">
+            <button class="btn btn-green" onclick="capture()">📸 Ambil Foto</button>
+            <button class="btn btn-red" onclick="closeCam()">✖ Tutup</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ⭐ GANTI dengan URL Web App Google Apps Script setelah deploy (lihat Code.gs)
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfFyPSeSx0NC6v5UnlTW-i1iQN7k_H0vSR7jgR9T3Nl8xGfcV9rh28qquwEfh2PAhIaw/exec';
+
+// ⭐ GANTI kode PIN akses di sini (bagikan hanya ke 4 HP yang boleh pakai)
+const APP_PIN = '123456';
+
+// ==================== PIN GATE ====================
+function checkPin(){
+    const val = document.getElementById('pinInput').value.trim();
+    if(val === APP_PIN){
+        sessionStorage.setItem('pinOk','1');
+        unlockApp();
+    } else {
+        document.getElementById('pinError').textContent = '❌ Kode salah, coba lagi';
+        document.getElementById('pinInput').value='';
+        document.getElementById('pinInput').focus();
+    }
+}
+function unlockApp(){
+    document.body.classList.remove('locked');
+    document.getElementById('pinGate').classList.add('hidden');
+}
+if(sessionStorage.getItem('pinOk')==='1'){ unlockApp(); }
+
+// ==================== PWA: SERVICE WORKER ====================
+if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW gagal:', err));
+    });
+}
+
+let dataPencairan = [];
+
+// ==================== FIREBASE REALTIME DATABASE (sinkron antar HP) ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyDP98ZumlkL4o8f1xSKxb10vTgYIdU9IU4",
+    authDomain: "controlanak-ac613.firebaseapp.com",
+    databaseURL: "https://controlanak-ac613-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "controlanak-ac613",
+    storageBucket: "controlanak-ac613.firebasestorage.app",
+    messagingSenderId: "1033751275397",
+    appId: "1:1033751275397:web:51c520ba74e3426be8c6ec"
+};
+let fbDb = null;
+let fbSiap = false;
+try{
+    firebase.initializeApp(firebaseConfig);
+    fbDb = firebase.database();
+    fbSiap = true;
+}catch(e){
+    console.error('Firebase gagal diinisialisasi:', e);
+}
+
+let sedangTerimaDariCloud = false; // cegah loop simpan-balik saat data datang dari listener
+
+function kirimKeFirebase(record){
+    if(!fbSiap) return;
+    fbDb.ref('csCahaya/pencairan/'+record.id).set(record).catch(err=>{
+        console.error('Gagal kirim ke Firebase:', err);
+    });
+}
+
+function hapusDariFirebase(id){
+    if(!fbSiap) return;
+    fbDb.ref('csCahaya/pencairan/'+id).remove().catch(err=>{
+        console.error('Gagal hapus di Firebase:', err);
+    });
+}
+
+function pasangListenerRealtime(){
+    if(!fbSiap) return;
+    fbDb.ref('csCahaya/pencairan').on('value', snap=>{
+        const obj = snap.val() || {};
+        const dariCloud = Object.values(obj);
+
+        sedangTerimaDariCloud = true;
+        dariCloud.forEach(cloudRec=>{
+            const idx = dataPencairan.findIndex(r=>r.id===cloudRec.id);
+            if(idx === -1){
+                dataPencairan.push(cloudRec);
+            } else {
+                // isi terbaru dari cloud, tapi status kirim-ke-Google-Sheets tetap pakai milik HP ini (itu per-HP, bukan per-data)
+                dataPencairan[idx] = Object.assign({}, cloudRec, {
+                    sending: dataPencairan[idx].sending,
+                    synced: dataPencairan[idx].synced,
+                    lastError: dataPencairan[idx].lastError
+                });
+            }
+        });
+        // urutkan terbaru di atas
+        dataPencairan.sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0));
+
+        saveLocal();
+        renderList();
+        if(currentDetailId){
+            const stillExists = dataPencairan.find(r=>r.id===currentDetailId);
+            if(stillExists) showDetail(currentDetailId);
+        }
+        sedangTerimaDariCloud = false;
+    }, err=>{
+        console.error('Listener Firebase error (cek rules database):', err);
+    });
+}
+
+// ==================== PENYIMPANAN (IndexedDB, kapasitas jauh lebih besar dari localStorage) ====================
+function idbOpen(){
+    return new Promise((resolve,reject)=>{
+        const req = indexedDB.open('cs-cahaya-db',1);
+        req.onupgradeneeded = ()=>req.result.createObjectStore('kv');
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+    });
+}
+function idbGet(key){
+    return idbOpen().then(db=>new Promise((resolve,reject)=>{
+        const r = db.transaction('kv','readonly').objectStore('kv').get(key);
+        r.onsuccess = ()=>resolve(r.result);
+        r.onerror = ()=>reject(r.error);
+    }));
+}
+function idbSet(key,val){
+    return idbOpen().then(db=>new Promise((resolve,reject)=>{
+        const tx = db.transaction('kv','readwrite');
+        tx.objectStore('kv').put(val,key);
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error);
+        tx.onabort = ()=>reject(tx.error);
+    }));
+}
+async function loadData(){
+    try{
+        let data = await idbGet('dataPencairan');
+        if(!data){
+            // migrasi dari penyimpanan lama (localStorage) bila ada
+            try{ data = JSON.parse(localStorage.getItem('dataPencairan') || '[]'); }catch(e){ data = []; }
+            if(data.length){
+                await idbSet('dataPencairan', data);
+                try{ localStorage.removeItem('dataPencairan'); }catch(e){}
+            }
+        }
+        dataPencairan = data || [];
+    }catch(e){
+        console.error('Gagal memuat data:', e);
+        try{ dataPencairan = JSON.parse(localStorage.getItem('dataPencairan') || '[]'); }catch(e2){ dataPencairan = []; }
+        showToast('⚠️ Gagal membaca penyimpanan HP','error');
+    }
+    // proses kirim yang terputus karena halaman di-refresh dianggap gagal
+    dataPencairan.forEach(r=>{
+        if(r.sending){ r.sending=false; if(!r.synced) r.lastError='Pengiriman terputus (halaman ditutup/di-refresh). Tekan Kirim Ulang.'; }
+    });
+    document.getElementById('countList').textContent = dataPencairan.length;
+    renderList();
+}
+let camTarget='', stream=null, scans=[], currentDetailId=null;
+let fotoSuami=null, fotoIstri=null, fotoDataScan=null;
+let geo={lat:null,lng:null,addr:'',date:'',time:''};
+
+// ==================== STATUS BAR ====================
+function showStatus(msg, type='info'){
+    const bar = document.getElementById('statusBar');
+    const text = document.getElementById('statusText');
+    text.textContent = msg;
+    bar.className = 'status-bar show ' + type;
+}
+
+function checkEnvironment(){
+    const isFile = window.location.protocol === 'file:';
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+
+    if(isFile){
+        showStatus('⚠️ Mode File Lokal - Kamera tidak aktif. Gunakan tombol UPLOAD untuk foto.', 'error');
+    } else if(isSecure){
+        showStatus('✓ Mode Server Aktif - Semua fitur berjalan normal', 'success');
+        setTimeout(()=>document.getElementById('statusBar').classList.remove('show'), 3000);
+    }
+    if(!SCRIPT_URL || SCRIPT_URL.includes('PASTE_')){
+        setTimeout(()=>showToast('⚠️ URL Google Apps Script belum diatur. Data hanya tersimpan di HP.','error'), 1500);
+    }
+}
+
+// ==================== TOAST ====================
+function showToast(msg, type='info'){
+    const t=document.getElementById('toast');
+    t.textContent=msg;
+    t.className='toast show '+type;
+    clearTimeout(t._timer);
+    t._timer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ==================== HELPERS ====================
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function escapeHtml(str){
+    const d=document.createElement('div');
+    d.textContent = str===null || str===undefined ? '' : String(str);
+    return d.innerHTML;
+}
+
+// ==================== NAVIGATION ====================
+function showPage(page, btn){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('page'+cap(page)).classList.add('active');
+    if(btn) btn.classList.add('active');
+    if(page==='list') renderList();
+}
+
+// ==================== TIME ====================
+function updateTime(){
+    const now=new Date();
+    const d=now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const t=now.toLocaleTimeString('id-ID');
+    document.getElementById('headerTime').textContent=d+' | '+t;
+    document.getElementById('gDate').textContent=d;
+    document.getElementById('gTime').textContent=t;
+    geo.date=d; geo.time=t;
+}
+setInterval(updateTime,1000); updateTime();
+
+// ==================== GPS ====================
+function getGPS(){
+    const s=document.getElementById('gStatus');
+    s.textContent='Memuat...';
+    if(!navigator.geolocation){s.textContent='GPS tidak didukung';return;}
+    navigator.geolocation.getCurrentPosition(p=>{
+        geo.lat=p.coords.latitude; geo.lng=p.coords.longitude;
+        document.getElementById('gLat').textContent=geo.lat.toFixed(6);
+        document.getElementById('gLng').textContent=geo.lng.toFixed(6);
+        s.textContent='✓ Tersambung';
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${geo.lat}&lon=${geo.lng}`)
+            .then(r=>r.json()).then(d=>{
+                geo.addr=d.display_name||'';
+                document.getElementById('gAddr').textContent=geo.addr||'-';
+            }).catch(()=>document.getElementById('gAddr').textContent=geo.lat.toFixed(4)+','+geo.lng.toFixed(4));
+    },e=>{s.textContent='Gagal: '+e.message;},{enableHighAccuracy:true,timeout:15000});
+}
+window.addEventListener('load',()=>{
+    setTimeout(getGPS,1000);
+    checkEnvironment();
+    loadData();
+    pasangListenerRealtime();
+    if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
+});
+
+// ==================== CAMERA (DENGAN FALLBACK) ====================
+function openCamera(target){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        showToast('❌ Browser tidak mendukung kamera. Gunakan UPLOAD saja.','error');
+        return;
+    }
+    if(window.location.protocol === 'file:'){
+        showToast('⚠️ Kamera tidak aktif di mode file lokal. Gunakan UPLOAD.','error');
+        setTimeout(()=>{
+            document.getElementById('file'+cap(target)).click();
+        }, 1500);
+        return;
+    }
+
+    camTarget=target;
+    document.getElementById('camTitle').textContent = target==='ocr' ? 'Scan Data Pembiayaan' : 'Foto '+target.charAt(0).toUpperCase()+target.slice(1);
+    document.getElementById('camModal').classList.add('active');
+
+    const constraints = {
+        video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 720 },
+            height: { ideal: 960 }
+        }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(s=>{
+            stream=s;
+            const video = document.getElementById('camVideo');
+            video.srcObject=s;
+            video.play().catch(e=>console.log('Play error:',e));
+        })
+        .catch(e=>{
+            console.error('Camera error:', e);
+            let msg = 'Gagal akses kamera';
+            if(e.name === 'NotAllowedError') msg = '❌ Izin kamera ditolak. Buka Settings browser → izinkan kamera.';
+            else if(e.name === 'NotFoundError') msg = '❌ Kamera tidak ditemukan';
+            else if(e.name === 'NotReadableError') msg = '❌ Kamera sedang dipakai aplikasi lain';
+
+            showToast(msg,'error');
+            closeCam();
+
+            setTimeout(()=>{
+                if(confirm(msg + '\n\nGunakan UPLOAD sebagai gantinya?')){
+                    document.getElementById('file'+cap(target)).click();
+                }
+            }, 500);
+        });
+}
+
+function closeCam(){
+    document.getElementById('camModal').classList.remove('active');
+    if(stream){
+        stream.getTracks().forEach(t=>t.stop());
+        stream=null;
+    }
+    document.getElementById('camVideo').srcObject=null;
+}
+
+function simpanKeGaleri(dataUrl, namaFile){
+    try{
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = namaFile;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }catch(e){
+        console.error('Gagal simpan ke galeri:', e);
+    }
+}
+
+function capture(){
+    const v=document.getElementById('camVideo'),c=document.getElementById('camCanvas');
+    if(v.videoWidth===0){
+        showToast('Kamera belum siap, coba lagi','error');
+        return;
+    }
+
+    const targetRatio = 3/4;
+    let sw, sh, sx, sy;
+    if(v.videoWidth/v.videoHeight > targetRatio){
+        sh = v.videoHeight;
+        sw = sh * targetRatio;
+        sx = (v.videoWidth - sw)/2;
+        sy = 0;
+    } else {
+        sw = v.videoWidth;
+        sh = sw / targetRatio;
+        sx = 0;
+        sy = (v.videoHeight - sh)/2;
+    }
+    c.width = sw;
+    c.height = sh;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    if(camTarget === 'ocr'){
+        // Tidak digambar overlay geotag di sini supaya tidak menutupi teks data yang mau dibaca
+        const hasilScan = c.toDataURL('image/jpeg',0.85);
+        simpanKeGaleri(hasilScan, 'CSCahaya_scan_'+Date.now()+'.jpg');
+        closeCam();
+        showToast('✅ Foto discan & disimpan ke Download, membaca teks...','info');
+        processOcrDataUrl(hasilScan);
+        return;
+    }
+
+    drawGeoOverlay(ctx, sw, sh);
+    const hasil = c.toDataURL('image/jpeg',0.85);
+    showPhoto(camTarget, hasil);
+    simpanKeGaleri(hasil, 'CSCahaya_'+camTarget+'_'+Date.now()+'.jpg');
+    closeCam();
+    showToast('✅ Foto diambil & disimpan ke Download HP','success');
+}
+
+function handlePhoto(e,target){
+    const f=e.target.files[0];
+    if(!f) return;
+
+    const reader = new FileReader();
+    reader.onload = function(ev){
+        const img = new Image();
+        img.onload = function(){
+            const canvas = document.createElement('canvas');
+            const targetRatio = 3/4;
+            let sw, sh, sx, sy;
+
+            if(img.width/img.height > targetRatio){
+                sh = img.height;
+                sw = sh * targetRatio;
+                sx = (img.width - sw)/2;
+                sy = 0;
+            } else {
+                sw = img.width;
+                sh = sw / targetRatio;
+                sx = 0;
+                sy = (img.height - sh)/2;
+            }
+
+            canvas.width = sw;
+            canvas.height = sh;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            drawGeoOverlay(ctx, sw, sh);
+
+            showPhoto(target, canvas.toDataURL('image/jpeg', 0.85));
+            showToast('✅ Foto berhasil diupload','success');
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(f);
+    e.target.value = '';
+}
+
+// ==================== GEOTAG OVERLAY (BURN-IN KE FOTO) ====================
+function wrapText(ctx, text, maxWidth){
+    const words = String(text).split(' ');
+    const lines = [];
+    let line = '';
+    for(let i=0;i<words.length;i++){
+        const test = line ? line+' '+words[i] : words[i];
+        if(ctx.measureText(test).width > maxWidth && line){
+            lines.push(line);
+            line = words[i];
+        } else {
+            line = test;
+        }
+    }
+    if(line) lines.push(line);
+    return lines;
+}
+
+function drawGeoOverlay(ctx, w, h){
+    const fontSize = Math.max(13, Math.round(w*0.034));
+    const lineHeight = Math.round(fontSize*1.35);
+    const padding = Math.round(fontSize*0.6);
+    const maxTextWidth = w - padding*2;
+
+    ctx.font = `${fontSize}px Arial`;
+
+    const baris = [];
+    baris.push(`📅 ${geo.date || '-'}   🕐 ${geo.time || '-'}`);
+    const koordinat = (geo.lat && geo.lng) ? `${geo.lat.toFixed(6)}, ${geo.lng.toFixed(6)}` : 'Lokasi belum tersedia';
+    baris.push(`📍 ${koordinat}`);
+    if(geo.addr){
+        wrapText(ctx, geo.addr, maxTextWidth).slice(0,2).forEach(l=>baris.push(l));
+    }
+
+    const overlayHeight = padding*2 + baris.length*lineHeight;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, h-overlayHeight, w, overlayHeight);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'top';
+    ctx.font = `${fontSize}px Arial`;
+    baris.forEach((line,i)=>{
+        ctx.fillText(line, padding, h-overlayHeight+padding+i*lineHeight);
+    });
+}
+
+function showPhoto(target, dataUrl){
+    const img = document.getElementById('img'+cap(target));
+    const ph = document.getElementById('ph'+cap(target));
+    img.src = dataUrl;
+    img.style.display='block';
+    ph.style.display='none';
+    if(target==='suami') fotoSuami = dataUrl; else fotoIstri = dataUrl;
+}
+
+// ==================== SCAN OCR OTOMATIS DATA PEMBIAYAAN ====================
+function setOcrStatus(msg, kind){
+    const el = document.getElementById('ocrStatus');
+    el.style.display = 'block';
+    el.textContent = msg;
+    const colors = {
+        info:   ['#fff3cd','#856404'],
+        success:['#d4edda','#155724'],
+        error:  ['#f8d7da','#721c24']
+    };
+    const c = colors[kind] || colors.info;
+    el.style.background = c[0];
+    el.style.color = c[1];
+}
+
+function parseOcrText(text){
+    const hasil = { nama:null, nomor:null, rek:null, plafond:null, bulan:null };
+    const bersih = text.replace(/[|]/g,' ').replace(/[ \t]+/g,' ');
+
+    // Nomor Pembiayaan + Nama Lengkap, biasanya satu baris tabel: "1 541052003168 MUFIDAH ULFA"
+    let m = bersih.match(/\b\d{1,3}\s+(\d{9,15})\s+([A-Za-z][A-Za-z.\s]{2,40}?)(?=\s{2,}|\n|$)/);
+    if(m){
+        hasil.nomor = m[1];
+        hasil.nama = m[2].trim();
+    }
+
+    // Fallback nomor pembiayaan dari label "Nomor PK / PPU" tidak dipakai (beda dgn nomor pembiayaan)
+    if(!hasil.nomor){
+        let mNomor = bersih.match(/\b(5\d{8,14})\b/); // nomor pembiayaan biasanya diawali kode produk (mis. 541...)
+        if(mNomor) hasil.nomor = mNomor[1];
+    }
+
+    // Rek. Pencairan (bukan "Nama Rek. Pencairan") — tanpa lookbehind agar kompatibel di semua browser/iOS lama
+    let mRek = null;
+    const reRek = /Rek\.?\s*Pencairan\s*[:\-]?\s*(\d{6,20})/gi;
+    let mm;
+    while((mm = reRek.exec(bersih)) !== null){
+        const sebelum = bersih.slice(Math.max(0, mm.index-6), mm.index);
+        if(!/Nama\s*$/i.test(sebelum)){ mRek = mm; break; }
+    }
+    if(mRek) hasil.rek = mRek[1];
+
+    // Nama Rek. Pencairan sebagai fallback nama
+    if(!hasil.nama){
+        let mNama = bersih.match(/Nama\s*Rek\.?\s*Pencairan\s*[:\-]?\s*([A-Za-z][A-Za-z.\s]{2,40})/i);
+        if(mNama) hasil.nama = mNama[1].trim().split(/\s{2,}|\n/)[0];
+    }
+
+    // Nominal Plafond, misal "11,000,000.00" atau "11.000.000"
+    let mPlafond = bersih.match(/Nominal\s*Plafond\s*[:\-]?\s*([\d.,]{4,20})/i);
+    if(mPlafond) hasil.plafond = mPlafond[1].replace(/[.,]00$/,'').trim();
+
+    // Jumlah Bulan, misal "12 Bulan"
+    let mBulan = bersih.match(/Jumlah\s*Bulan\s*[:\-]?\s*(\d{1,3})/i);
+    if(mBulan) hasil.bulan = mBulan[1];
+
+    return hasil;
+}
+
+function processOcrDataUrl(dataUrl){
+    fotoDataScan = dataUrl;
+    document.getElementById('imgOcrPreview').src = dataUrl;
+    document.getElementById('ocrPreviewBox').style.display = 'block';
+
+    if(typeof Tesseract === 'undefined'){
+        setOcrStatus('❌ Modul pembaca teks gagal dimuat. Cek koneksi internet lalu coba lagi.','error');
+        return;
+    }
+
+    setOcrStatus('🔎 Membaca teks dari foto, mohon tunggu...','info');
+
+    Tesseract.recognize(dataUrl, 'ind+eng')
+        .then(({data:{text}})=>{
+            console.log('Hasil OCR mentah:', text);
+            const hasil = parseOcrText(text);
+
+            let terisi = [];
+            if(hasil.nama){ document.getElementById('nama').value = hasil.nama; terisi.push('Nama'); }
+            if(hasil.nomor){ document.getElementById('nomor').value = hasil.nomor; terisi.push('Nomor Pembiayaan'); }
+            if(hasil.rek){ document.getElementById('rek').value = hasil.rek; terisi.push('No. Rekening'); }
+            if(hasil.plafond){ document.getElementById('plafond').value = hasil.plafond; terisi.push('Nominal Plafond'); }
+            if(hasil.bulan){ document.getElementById('bulan').value = hasil.bulan; terisi.push('Jumlah Bulan'); }
+
+            ['nama','nomor','rek','plafond','bulan'].forEach(id=>{
+                const inp = document.getElementById(id);
+                inp.style.background = '#fff9db';
+                setTimeout(()=>{ inp.style.background=''; }, 4000);
+            });
+
+            if(terisi.length){
+                setOcrStatus('✅ Terisi otomatis: '+terisi.join(', ')+'. Cek kembali sebelum disimpan, OCR bisa saja salah baca.','success');
+            } else {
+                setOcrStatus('⚠️ Tidak berhasil mengenali data dari foto. Coba foto lebih jelas/lurus, atau isi manual.','error');
+            }
+        })
+        .catch(err=>{
+            console.error('OCR error:', err);
+            setOcrStatus('❌ Gagal membaca foto: '+err.message,'error');
+        });
+}
+
+function handleOcrScan(event){
+    const f = event.target.files[0];
+    event.target.value = '';
+    if(!f) return;
+
+    const reader = new FileReader();
+    reader.onload = function(ev){
+        processOcrDataUrl(ev.target.result);
+    };
+    reader.readAsDataURL(f);
+}
+
+// ==================== SCAN AGUNAN ====================
+function handleScan(event){
+    const files = Array.from(event.target.files);
+    files.forEach(f=>{
+        if(f.size > 10*1024*1024){
+            showToast('❌ '+f.name+' melebihi 10MB','error');
+            return;
+        }
+        showToast('⏳ Membaca file '+f.name+'...','info');
+        const reader = new FileReader();
+        reader.onload = function(ev){
+            scans.push({name:f.name, type:f.type, size:f.size, data:ev.target.result});
+            renderScanList();
+            showToast('✅ '+f.name+' siap ('+(f.size/1024/1024).toFixed(1)+' MB)','success');
+        };
+        reader.onerror = function(){ showToast('❌ Gagal membaca '+f.name,'error'); };
+        reader.readAsDataURL(f);
+    });
+    event.target.value = '';
+}
+
+function renderScanList(){
+    const c = document.getElementById('scanList');
+    if(scans.length===0){ c.innerHTML=''; return; }
+    c.innerHTML = scans.map((s,i)=>`
+        <div class="file-item">
+            <span>📄 ${escapeHtml(s.name)} (${(s.size/1024).toFixed(0)} KB)</span>
+            <button class="btn btn-red" style="padding:4px 10px;margin:0;" onclick="removeScan(${i})">✖</button>
+        </div>`).join('');
+}
+
+function removeScan(i){
+    scans.splice(i,1);
+    renderScanList();
+}
+
+// ==================== SIMPAN / KIRIM ====================
+function validateForm(){
+    if(!fotoSuami){ showToast('❌ Foto Suami wajib diisi','error'); return false; }
+    if(!fotoIstri){ showToast('❌ Foto Istri wajib diisi','error'); return false; }
+    if(!document.getElementById('nama').value.trim()){ showToast('❌ Nama wajib diisi','error'); return false; }
+    if(!document.getElementById('nomor').value.trim()){ showToast('❌ Nomor Pembiayaan wajib diisi','error'); return false; }
+    if(!geo.lat){ showToast('❌ Lokasi GPS belum tersambung, tekan Refresh Lokasi','error'); return false; }
+    return true;
+}
+
+function submitForm(){
+    if(!validateForm()) return;
+
+    const record = {
+        id: 'PC'+Date.now(),
+        nama: document.getElementById('nama').value.trim(),
+        nomor: document.getElementById('nomor').value.trim(),
+        rek: document.getElementById('rek').value.trim(),
+        plafond: document.getElementById('plafond').value.trim(),
+        bulan: document.getElementById('bulan').value.trim(),
+        fotoSuami, fotoIstri, fotoDataScan,
+        scans: scans.slice(),
+        geo: {...geo},
+        createdAt: new Date().toISOString(),
+        synced: false
+    };
+
+    dataPencairan.unshift(record);
+    saveLocal();
+    showToast('💾 Tersimpan di HP, mengirim ke Google Sheets...','info');
+    kirimKeFirebase(record);
+    kirimKeServer(record);
+    resetForm();
+    showPage('list', document.querySelectorAll('.nav-btn')[1]);
+}
+
+function saveLocal(){
+    document.getElementById('countList').textContent = dataPencairan.length;
+    return idbSet('dataPencairan', dataPencairan).catch(err=>{
+        console.error('Gagal menyimpan:', err);
+        showToast('❌ Gagal menyimpan ke HP (memori penuh?). Kirim data lama ke server lalu hapus.','error');
+    });
+}
+
+function buatSignalTimeout(ms){
+    if(typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'){
+        return AbortSignal.timeout(ms);
+    }
+    // Fallback untuk browser/iOS lama yang belum punya AbortSignal.timeout
+    const ctrl = new AbortController();
+    setTimeout(()=>ctrl.abort(), ms);
+    return ctrl.signal;
+}
+
+function kirimKeServer(record){
+    if(!SCRIPT_URL || SCRIPT_URL.includes('PASTE_')){
+        record.sending = false;
+        record.lastError = 'URL server belum diatur di kode aplikasi (SCRIPT_URL kosong/placeholder)';
+        saveLocal(); renderList();
+        if(currentDetailId===record.id) showDetail(record.id);
+        showToast('⚠️ URL server belum diatur, data hanya tersimpan di HP','error');
+        return;
+    }
+    record.sending = true;
+    record.lastError = null;
+    saveLocal(); renderList();
+    if(currentDetailId===record.id) showDetail(record.id);
+
+    fetch(SCRIPT_URL, {
+        method:'POST',
+        body: JSON.stringify({action:'save', record}),
+        signal: buatSignalTimeout(120000)
+    }).then(r=>{
+        if(!r.ok) throw new Error('Status HTTP '+r.status+' '+r.statusText);
+        return r.text();
+    }).then(txt=>{
+        let res;
+        try{
+            res = JSON.parse(txt);
+        }catch(parseErr){
+            console.error('Respon server bukan JSON:', txt);
+            record.sending = false;
+            record.lastError = 'Server tidak merespon dengan benar (bukan JSON). Cek deployment Apps Script (harus "Anyone" / Siapa saja). Cuplikan respon: '+String(txt).slice(0,150);
+            saveLocal(); renderList();
+            if(currentDetailId===record.id) showDetail(record.id);
+            showToast('⚠️ Gagal: server tidak merespon dengan benar (cek deployment Apps Script)','error');
+            return;
+        }
+        record.sending = false;
+        if(res.status==='ok'){
+            record.synced = true;
+            record.lastError = null;
+            if(res.fotoSuamiUrl) record.fotoSuamiUrl = res.fotoSuamiUrl;
+            if(res.fotoIstriUrl) record.fotoIstriUrl = res.fotoIstriUrl;
+            if(res.scanUrls) record.scanUrls = res.scanUrls;
+            saveLocal();
+            renderList();
+            if(currentDetailId===record.id) showDetail(record.id);
+            showToast('✅ Berhasil dikirim ke Google Sheets','success');
+        } else {
+            record.lastError = res.message || 'Server membalas gagal tanpa keterangan detail';
+            saveLocal(); renderList();
+            if(currentDetailId===record.id) showDetail(record.id);
+            showToast('⚠️ Gagal dikirim: '+record.lastError,'error');
+        }
+    }).catch(err=>{
+        console.error(err);
+        record.sending = false;
+        const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+        record.lastError = isTimeout
+            ? 'Waktu tunggu habis (2 menit) - server tidak merespons. Kemungkinan: koneksi internet lambat/putus, atau server/Apps Script sedang tidak bisa diakses.'
+            : 'Gagal terhubung ke server: '+err.message+' (cek koneksi internet HP, atau server sedang lambat/down)';
+        saveLocal(); renderList();
+        if(currentDetailId===record.id) showDetail(record.id);
+        showToast(isTimeout ? '⚠️ Waktu tunggu habis, coba lagi' : '⚠️ Gagal terhubung: '+err.message,'error');
+    });
+}
+
+function kirimUlang(id){
+    const record = dataPencairan.find(r=>r.id===id);
+    if(!record) return;
+    showToast('📤 Mengirim ulang...','info');
+    kirimKeServer(record);
+}
+
+function resetForm(){
+    document.getElementById('nama').value='';
+    document.getElementById('nomor').value='';
+    document.getElementById('rek').value='';
+    document.getElementById('plafond').value='';
+    document.getElementById('bulan').value='';
+    fotoSuami=null; fotoIstri=null; fotoDataScan=null;
+    document.getElementById('imgSuami').style.display='none';
+    document.getElementById('imgIstri').style.display='none';
+    document.getElementById('phSuami').style.display='block';
+    document.getElementById('phIstri').style.display='block';
+    document.getElementById('ocrPreviewBox').style.display='none';
+    document.getElementById('ocrStatus').style.display='none';
+    scans=[];
+    renderScanList();
+}
+
+// ==================== DAFTAR ====================
+function renderList(){
+    document.getElementById('countList').textContent = dataPencairan.length;
+    const c = document.getElementById('listContainer');
+    if(dataPencairan.length===0){
+        c.innerHTML='<div class="empty-list"><div class="icon">📭</div>Belum ada data pencairan</div>';
+        return;
+    }
+    c.innerHTML = dataPencairan.map(r=>{
+        const d = new Date(r.createdAt);
+        const waktu = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+        const badge = r.sending ? '⏳' : (r.synced ? '✅' : '⚠️');
+        return `<div class="list-item" onclick="showDetail('${r.id}')">
+            <img class="list-thumb" src="${r.fotoSuami||''}">
+            <div class="list-info">
+                <div class="nama">${badge} ${escapeHtml(r.nama)}</div>
+                <div class="nomor">No: ${escapeHtml(r.nomor)}</div>
+                <div class="waktu">${waktu}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ==================== DETAIL ====================
+function showDetail(id){
+    currentDetailId = id;
+    const r = dataPencairan.find(x=>x.id===id);
+    if(!r) return;
+
+    const d = new Date(r.createdAt);
+    const waktu = d.toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+' | '+d.toLocaleTimeString('id-ID');
+
+    const pdfScans = [];
+    const scansHtml = (r.scans && r.scans.length) ? r.scans.map((s,i)=>{
+        if(s.type && s.type.startsWith('image')){
+            return `<div class="file-item"><span>📄 ${escapeHtml(s.name)}</span></div>
+                    <img src="${s.data}" style="max-width:100%;border-radius:5px;margin:5px 0;">`;
+        }
+        pdfScans.push({index:i, data:s.data});
+        return `<div class="file-item">
+                    <span>📄 ${escapeHtml(s.name)}</span>
+                    <a href="${s.data}" download="${escapeHtml(s.name)}" class="btn btn-blue" style="padding:4px 10px;margin:0;text-decoration:none;">⬇</a>
+                </div>
+                <div id="pdfPreview-${i}" style="margin:5px 0;"><p style="color:#999;font-size:0.85em;">⏳ Memuat isi dokumen...</p></div>`;
+    }).join('') : '<p style="color:#999;">Tidak ada file scan</p>';
+
+    document.getElementById('detailContent').innerHTML = `
+        <div class="detail-card">
+            <h3>👥 Foto Suami &amp; Istri</h3>
+            <div class="detail-photos-main">
+                <div class="detail-photo-box"><img src="${r.fotoSuami}"><div class="caption">Foto Suami</div></div>
+                <div class="detail-photo-box"><img src="${r.fotoIstri}"><div class="caption">Foto Istri</div></div>
+            </div>
+        </div>
+        <div class="detail-card">
+            <h3>📝 Data Pembiayaan ${r.sending ? '<span style="color:#856404;font-size:0.7em;">⏳ Mengirim...</span>' : (r.synced ? '<span style="color:#28a745;font-size:0.7em;">✅ Tersinkron</span>' : '<span style="color:#dc3545;font-size:0.7em;">⚠️ Belum Tersinkron</span>')}</h3>
+            ${(!r.synced && !r.sending && r.lastError) ? `<div style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:6px;padding:10px;margin-bottom:12px;font-size:0.85em;"><b>Alasan gagal:</b> ${escapeHtml(r.lastError)}</div>` : ''}
+            <div class="detail-row"><div class="detail-label">Nama</div><div class="detail-value">${escapeHtml(r.nama)}</div></div>
+            <div class="detail-row"><div class="detail-label">Nomor Pembiayaan</div><div class="detail-value">${escapeHtml(r.nomor)}</div></div>
+            <div class="detail-row"><div class="detail-label">No. Rek Sukarela</div><div class="detail-value">${escapeHtml(r.rek||'-')}</div></div>
+            <div class="detail-row"><div class="detail-label">Nominal Plafond</div><div class="detail-value">${escapeHtml(r.plafond||'-')}</div></div>
+            <div class="detail-row"><div class="detail-label">Jumlah Bulan</div><div class="detail-value">${escapeHtml(r.bulan||'-')}</div></div>
+            <div class="detail-row"><div class="detail-label">Tanggal & Waktu</div><div class="detail-value">${waktu}</div></div>
+            <div class="detail-row"><div class="detail-label">Lokasi</div><div class="detail-value">${escapeHtml(r.geo && r.geo.addr || '-')}<br>${r.geo && r.geo.lat ? r.geo.lat.toFixed(6) : '-'}, ${r.geo && r.geo.lng ? r.geo.lng.toFixed(6) : '-'}</div></div>
+            ${r.fotoDataScan ? `<div class="detail-photos-single"><div class="detail-photo-box"><img src="${r.fotoDataScan}"><div class="caption">Foto Data Pembiayaan</div></div></div>` : ''}
+        </div>
+        <div class="detail-card">
+            <h3>📎 File Scan Agunan</h3>
+            ${scansHtml}
+        </div>
+        <div class="no-print" style="text-align:center;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+            <button class="btn btn-green" style="flex:1;min-width:160px;" onclick="shareWhatsApp('${r.id}')">💬 Bagikan ke WhatsApp</button>
+            ${!r.synced ? `<button class="btn btn-blue" style="flex:1;min-width:160px;" ${r.sending?'disabled':''} onclick="kirimUlang('${r.id}')">${r.sending?'⏳ Mengirim...':'📤 Kirim Ulang ke Server'}</button>` : ''}
+        </div>
+    `;
+    showPage('detail', null);
+    window.currentPreviewPromises = pdfScans.map(p => renderPdfPreview(p.data, 'pdfPreview-'+p.index));
+}
+
+function siapkanCetak(){
+    const btn = document.getElementById('btnPrint');
+    const proses = (window.currentPreviewPromises && window.currentPreviewPromises.length) ? window.currentPreviewPromises : [];
+
+    if(proses.length===0){
+        window.print();
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Menyiapkan...';
+    showToast('⏳ Menyiapkan foto & file untuk dicetak...','info');
+
+    Promise.all(proses).then(()=>{
+        btn.disabled = false;
+        btn.textContent = '🖨️ PRINT';
+        document.getElementById('toast').classList.remove('show');
+        setTimeout(()=>window.print(), 250);
+    }).catch(()=>{
+        btn.disabled = false;
+        btn.textContent = '🖨️ PRINT';
+        document.getElementById('toast').classList.remove('show');
+        setTimeout(()=>window.print(), 250);
+    });
+}
+
+// ==================== PREVIEW ISI PDF (pakai PDF.js) ====================
+async function renderPdfPreview(dataUrl, containerId){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    try{
+        if(typeof pdfjsLib === 'undefined'){
+            container.innerHTML = '<p style="color:#999;font-size:0.85em;">Preview tidak tersedia (library gagal dimuat), gunakan tombol unduh di atas.</p>';
+            return;
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const base64 = dataUrl.split(',')[1];
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
+        container.innerHTML = '';
+        for(let p=1; p<=pdf.numPages; p++){
+            const page = await pdf.getPage(p);
+            const viewport = page.getViewport({scale: 1.4});
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.maxWidth = '100%';
+            canvas.style.borderRadius = '5px';
+            canvas.style.marginBottom = '8px';
+            canvas.style.border = '1px solid #ddd';
+            await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+            container.appendChild(canvas);
+        }
+    }catch(err){
+        console.error('Gagal render PDF:', err);
+        container.innerHTML = '<p style="color:#999;font-size:0.85em;">Gagal menampilkan isi dokumen, gunakan tombol unduh di atas.</p>';
+    }
+}
+
+// ==================== SHARE KE WHATSAPP ====================
+function dataUrlToFile(dataUrl, filename){
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bytes = atob(arr[1]);
+    const u8 = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) u8[i] = bytes.charCodeAt(i);
+    return new File([u8], filename, {type: mime});
+}
+
+async function shareWhatsApp(id){
+    const r = dataPencairan.find(x=>x.id===id);
+    if(!r) return;
+
+    const d = new Date(r.createdAt);
+    const waktu = d.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})+' '+d.toLocaleTimeString('id-ID');
+    const teks = `📋 *Data Pencairan Pembiayaan*\n\n`+
+        `Nama: ${r.nama}\n`+
+        `Nomor Pembiayaan: ${r.nomor}\n`+
+        `No. Rek Sukarela: ${r.rek||'-'}\n`+
+        `Nominal Plafond: ${r.plafond||'-'}\n`+
+        `Jumlah Bulan: ${r.bulan||'-'}\n`+
+        `Tanggal: ${waktu}\n`+
+        `Lokasi: ${r.geo && r.geo.addr || '-'}`;
+
+    if(navigator.share){
+        try{
+            const files = [];
+            if(r.fotoSuami) files.push(dataUrlToFile(r.fotoSuami, 'foto_suami_'+r.id+'.jpg'));
+            if(r.fotoIstri) files.push(dataUrlToFile(r.fotoIstri, 'foto_istri_'+r.id+'.jpg'));
+            if(r.fotoDataScan) files.push(dataUrlToFile(r.fotoDataScan, 'foto_data_'+r.id+'.jpg'));
+
+            if(files.length && navigator.canShare && navigator.canShare({files})){
+                await navigator.share({text: teks, files});
+            } else {
+                await navigator.share({text: teks});
+            }
+            return;
+        }catch(err){
+            if(err.name === 'AbortError') return;
+            console.error('Share gagal:', err);
+        }
+    }
+
+    window.open('https://wa.me/?text='+encodeURIComponent(teks), '_blank');
+    showToast('ℹ️ Foto & scan tidak otomatis terlampir, kirim manual dari WhatsApp','info');
+}
+
+
+function deleteCurrent(){
+    if(!currentDetailId) return;
+    if(!confirm('Yakin ingin menghapus data ini? Akan terhapus juga di semua HP.')) return;
+    hapusDariFirebase(currentDetailId);
+    dataPencairan = dataPencairan.filter(r=>r.id!==currentDetailId);
+    saveLocal();
+    showToast('🗑️ Data dihapus','success');
+    showPage('list', document.querySelectorAll('.nav-btn')[1]);
+}
+</script>
+</body>
+</html>
