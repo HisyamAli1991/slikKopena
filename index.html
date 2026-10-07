@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Analisa SLIK</title><style>
+:root{--bg:#f4f6f8;--cd:#fff;--tx:#1b1f24;--mu:#667085;--bd:#e2e6eb;--ac:#0f766e;--rd:#c62828;--yl:#b7791f;--gn:#2e7d32}
+@media(prefers-color-scheme:dark){:root{--bg:#111418;--cd:#1b2026;--tx:#eceff3;--mu:#98a2b3;--bd:#2d343c;--ac:#2dd4bf;--rd:#ef6b6b;--yl:#f0b24b;--gn:#6bd17a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,sans-serif;padding:14px}
+main{max-width:680px;margin:0 auto}h1{font-size:20px;margin:6px 0}h2{font-size:15px;margin:0 0 8px}
+.c{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0}
+.mu{color:var(--mu);font-size:13px}.r{display:flex;justify-content:space-between;gap:8px;padding:3px 0}.r b{text-align:right;word-break:break-word}
+.btn{display:block;width:100%;padding:14px;border:2px dashed var(--ac);border-radius:12px;text-align:center;color:var(--ac);font-weight:600;cursor:pointer}
+.v{font-weight:700;font-size:17px;padding:14px;border-radius:12px;text-align:center;color:#fff}
+.v small{display:block;font-weight:400;font-size:13px;opacity:.9;margin-top:2px}
+.rd{color:var(--rd)}.yl{color:var(--yl)}.gn{color:var(--gn)}
+.sc{overflow-x:auto}table{border-collapse:collapse;font-size:12px;width:100%}td,th{padding:4px 3px;text-align:center;border:1px solid var(--bd);white-space:nowrap}
+.k1{background:#2e7d3233}.k2{background:#b7791f55}.k3,.k4,.k5{background:#c6282877}
+button{flex:1;padding:10px;border:1px solid var(--ac);border-radius:8px;background:transparent;color:var(--ac);font-weight:600;font-size:14px;cursor:pointer}
+input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:16px;margin:4px 0 8px}
+.tag{display:inline-block;padding:1px 6px;border-radius:6px;font-size:11px;font-weight:600;margin-left:6px}
+.tag-rd{background:#c6282822;color:var(--rd)}.tag-yl{background:#b7791f22;color:var(--yl)}.tag-ac{background:rgba(15,118,110,.14);color:var(--ac)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kv>div{background:var(--bg);padding:8px;border-radius:8px;border:1px solid var(--bd)}
+.kv>div b{display:block;font-size:13px;word-break:break-word}
+.kv>div span{font-size:11px;color:var(--mu);display:block;text-transform:uppercase}
+.note{font-size:12px;color:var(--mu);background:var(--bg);padding:8px;border-radius:8px;margin-top:6px;border:1px dashed var(--bd)}
+.bar{height:20px;background:var(--bd);border-radius:6px;overflow:hidden;position:relative;margin:6px 0}
+.bar>span{display:block;height:100%}.bar>i{position:absolute;top:0;bottom:0;width:1px;background:var(--tx);opacity:.4}
+footer{text-align:center;font-size:11px;color:var(--mu);margin:20px 0 40px}
+.ex{display:flex;gap:8px;flex-wrap:wrap}.ex button{min-width:calc(50% - 4px)}
+</style></head><body><main>
+<h1>Analisa SLIK</h1>
+<p class="mu">Khusus PEFINDO IdScore+. File dibaca di HP saja, tidak dikirim ke server.</p>
+<label class="btn" id="up">Pilih PDF laporan SLIK<input id="f" type="file" accept="application/pdf" hidden></label>
+<div id="st" class="mu"></div>
+<div id="out"></div>
+<footer>Alat bantu pribadi. IdScore+ milik PT PEFINDO Biro Kredit.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const $=i=>document.getElementById(i),M={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11},BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const rp=x=>'Rp '+Math.round(x).toLocaleString('id-ID'),n=s=>+String(s||0).replace(/[^\d]/g,'')||0;
+const dt=s=>{if(!s)return null;const a=String(s).trim().split(/\s+/);if(a.length<3)return null;const d=+a[0],m=M[a[1]],y=+a[2];if(!d||m==null||!y)return null;return new Date(y,m,d)};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KL=['','Lancar','Dalam Perhatian Khusus','Kurang Lancar','Diragukan','Macet'];
+const mo=(a,b)=>{if(!a||!b)return 1;const m=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());return Math.max(1,m)};
+const ann=(p,r,m)=>{if(!p||!m)return 0;const i=r/1200;return i>0?p*i/(1-Math.pow(1+i,-m)):p/m};
+const flat=(p,r,m)=>!p||!m?0:p*(1+(r/100)*(m/12))/m;
+const mode=(r,t)=>{const s=(t||'').toLowerCase();if(/bagi hasil|murabahah|syariah/.test(s))return 'syariah';if(r>=40)return 'flat';return 'efektif'};
+const est=(p,r,m,md)=>{if(!p||!m||m<=0)return null;const a=ann(p,r,m),f=flat(p,r,m);if(md==='syariah')return[f,f];return[Math.min(a,f),Math.max(a,f)]};
+const effRate=(r,m)=>{if(!r||!m)return 0;const t=r*m/12;return(Math.pow(1+t/m,m)-1)*1200};
+async function lines(pg){const tc=await pg.getTextContent(),rows=[];for(const it of tc.items){const s=it.str.trim();if(!s)continue;const y=Math.round(it.transform[5]);let r=rows.find(r=>Math.abs(r.y-y)<=2);if(!r){r={y,a:[]};rows.push(r)}r.a.push([it.transform[4],s])}rows.sort((a,b)=>b.y-a.y);return rows.map(r=>{r.a.sort((p,q)=>p[0]-q[0]);return(r.a[0][0]>125?'¦  ':'')+r.a.map(x=>x[1]).join('  ')})}
+$('f').onchange=async e=>{const file=e.target.files[0];if(!file)return;$('out').innerHTML='';
+try{$('st').textContent='Membaca...';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+let L=[],p1=[];for(let i=1;i<=pdf.numPages;i++){$('st').textContent='Halaman '+i+'/'+pdf.numPages;const l=await lines(await pdf.getPage(i));if(i===1)p1=l;L.push(...l);
+if(l.some(x=>x.includes('Kontrak Ditutup sebagai Debitur')))break;if(l.some(x=>x.includes('AKHIR LAPORAN')))break}
+const S=x=>x.replace(/^¦\s*/,''),T=L.map(S).join('\n');
+if(!T.includes('IdScore'))throw new Error('Bukan laporan PEFINDO IdScore+, atau PDF hasil scan.');
+render(parse(T,p1.map(S),L.join('\n')));$('st').textContent='Selesai.'}catch(x){$('st').innerHTML='<span class="rd">Gagal: '+esc(x.message||x)+'</span>'}};
+function parse(T,p1,TM){
+const g=(re,s=T)=>{const m=s.match(re);return m?m[1].trim():''},D='(?=\\s{2}|\\n|$)';
+const nm=(()=>{const a=g(new RegExp('Nama berdasarkan identitas\\s+(.+?)'+D));if(a&&a!=='-')return a;
+const b=g(new RegExp('Nama Lengkap\\s+(.+?)'+D));if(b&&b!=='-')return b;
+const i=p1.findIndex(l=>l.startsWith('Nomor Identitas'));
+if(i>0){const c=p1[i-1].trim().replace(/^¦\s*/,'');if(c.length>3&&/^[A-Za-z\s.'-]+$/.test(c))return c}return'-'})();
+const kr=(()=>{const a=g(new RegExp('Pekerjaan\\s{2}(.+?)'+D)),t=g(new RegExp('Nama tempat bekerja\\s+(.+?)'+D));return a+(t&&t!=='NA'&&t!=='-'?' ('+t+')':'')})();
+const d={nama:nm,nik:g(/Nomor Identitas\s+(\d{16})/),lahir:g(new RegExp('Tanggal Lahir\\s+(.+?)'+D)),kerja:kr,
+skor:+g(/Skor\s+(\d{2,4})\s+Kategori Risiko/),kat:g(/Kategori Risiko\s+(\w+)/),
+dpd:g(/Kemungkinan DPD 90\+\s*:?\s*([\d.,]+)%/),desk:g(new RegExp('Deksripsi Risiko\\s+(.+?)'+D)),
+faktor:g(/Faktor[- ]Faktor Risiko\s+(.+?)(?:\n|$)/),
+aktif:g(/Jumlah kontrak aktif\s+(\d+)/),tutup:g(/Jumlah kontrak ditutup\s+(\d+)/),
+tg:n(g(/Jumlah nilai tunggakan\s+Rp\.?\s*([\d.]+)/)),plafon:n(g(/Total plafon kredit\s+Rp\.?\s*([\d.]+)/)),
+saldo:n(g(/Total nilai saldo terutang\s+Rp\.?\s*([\d.]+)/)),hrw:g(/Hari tunggakan terburuk\s+(\d+)/),
+klw:g(/Kolektibilitas terburuk\s+(\d)/),cal:{},k:[]};
+d.ex=(d.skor===9999)||/excluded/i.test(d.desk||'')||d.kat==='XX'||/tidak dapat dihitung/i.test(d.faktor||'');
+for(const l of p1){const m=l.match(/^(20\d\d)\s/);if(m&&!d.cal[m[1]]){const t=[...l.replace(/\s*\|\s*/g,'|').matchAll(/(\d)\|(\d+)|n\/a/g)];
+if(t.length>=12)d.cal[m[1]]=t.slice(0,12).map(x=>x[1]?[+x[1],+x[2]]:null)}}
+const a=((TM||T).split('Kontrak Aktif sebagai Debitur')[1]||'').split('Kontrak Ditutup sebagai Debitur')[0];
+for(const b of a.split(/^\d+\. Fasilitas.*$/m).slice(1)){
+const ls=b.split('\n'),ml=ls.findIndex(x=>/Rp\. [\d.]+\s+Rp\. [\d.]+\s+\d\d \w{3} \d{4}/.test(x)),
+m=b.match(/Rp\. ([\d.]+)\s+Rp\. ([\d.]+)\s+(\d\d \w{3} \d{4})/)||[],
+q=b.match(/Rp\. ([\d.]+)\s+(\d+) Hari\s+(\d) - /)||[],
+j=b.match(/Tanggal mulai\s+(\d\d \w{3} \d{4})\s+Tanggal jatuh tempo\s+(\d\d \w{3} \d{4})/)||[];
+const c={pel:(()=>{let nn=(ls[ml]||'').split('  ')[0]||'';for(let k=ml+1;k<ml+4;k++){const l=ls[k]||'';if(/^(¦\s*)?(Tipe Pelapor|Halaman|PT PEFINDO)/.test(l))break;const sg=l.split('  ');if(sg[0]!=='¦')nn+=' '+sg[0]}return nn.trim()})(),
+tipe:g(new RegExp('Jenis Kredit\\s+(.+?)'+D),b),saldo:n(m[1]),plafon:n(m[2]),upd:m[3],
+tg:n(q[1]),hari:+q[2]||0,kol:+q[3]||1,bunga:+g(/Bunga pinjaman\s+([\d.]+)%/,b)||0,
+mulai:j[1],jt:j[2],st:g(new RegExp('Status kontrak\\s+(.+?)'+D),b),
+klw:+g(/Kolektibilitas terburuk\s+(\d)\s/,b)||1,hrw:+g(/Hari tunggakan terburuk saat Ini\s+(\d+)/,b)||0,
+macet:g(/Tanggal macet\s+(\d\d \w{3} \d{4})/,b)};
+c.bad=/hapus/i.test(c.st)||c.klw===5;c.hiRate=c.bunga>100;c.mode=mode(c.bunga,c.tipe);
+if(!c.bad&&c.jt)c.A=est(c.saldo,c.bunga,mo(dt(c.upd),dt(c.jt)),c.mode);
+d.k.push(c)}
+if(!d.k.length&&+d.aktif>0)throw new Error('Ada '+d.aktif+' kontrak aktif tapi detail tidak terbaca.');
+const ok=d.k.filter(c=>c.A!=null);
+d.lo=ok.reduce((s,c)=>s+c.A[0],0);d.hi=ok.reduce((s,c)=>s+c.A[1],0);
+d.sisaBad=d.k.filter(c=>c.bad).reduce((s,c)=>s+c.saldo,0);
+d.total=d.saldo+d.tg+d.sisaBad;return d}
+function render(d){
+const F=[],bad=d.k.filter(c=>c.bad),tgs=d.k.filter(c=>c.tg>0),hi=d.k.filter(c=>c.hiRate&&!c.bad);
+if(d.ex)F.push(['yl','Skor tidak dapat dihitung: data 24 bulan terakhir tidak cukup. Angka 9999/XX bukan skor tinggi.']);
+else if(d.skor&&d.skor<=400)F.push(['rd','Skor '+d.skor+' ('+d.kat+'), DPD 90+ '+(d.dpd||'-')+'%']);
+bad.forEach(c=>F.push(['rd',c.pel+': '+c.st+(c.macet?', macet '+c.macet:'')+', sisa '+rp(c.saldo)]));
+tgs.forEach(c=>F.push([c.hari>=30?'rd':'yl','Menunggak di '+c.pel+': '+rp(c.tg)+' ('+c.hari+' hari)']));
+if(+d.hrw>=60)F.push(['rd','Pernah telat '+d.hrw+' hari']);else if(+d.hrw>=30)F.push(['yl','Pernah telat '+d.hrw+' hari']);
+if(+d.aktif>=10)F.push(['yl',d.aktif+' kontrak aktif sekaligus']);
+hi.forEach(c=>F.push(['yl',c.pel+': bunga '+c.bunga+'%/thn sangat tinggi']));
+if(d.k.reduce((s,c)=>s+c.plafon,0)&&d.plafon&&Math.abs(d.k.reduce((s,c)=>s+c.plafon,0)-d.plafon)>1000)
+F.push(['yl','Total plafon ringkasan tidak sama dengan jumlah kontrak aktif.']);
+const red=F.some(x=>x[0]==='rd');let v=bad.length||(!d.ex&&d.skor<=400)?['TIDAK DISARANKAN','#c62828']:(d.ex||red||F.length)?['HATI-HATI','#b7791f']:['RELATIF AMAN','#2e7d32'];
+const ys=Object.keys(d.cal).sort().reverse();
+const cal=ys.map(y=>'<tr><th>'+y+'</th>'+d.cal[y].map(x=>'<td class="'+(x?'k'+Math.min(x[0],5):'')+'">'+(x?x[0]+'|'+x[1]:'-')+'</td>').join('')+'</tr>').join('');
+const sk=d.ex?'Tidak dapat dihitung':' '+d.skor+' / 1000 ('+d.kat+')';
+const kk=d.k.map((c,i)=>{const t1=c.bad?'<span class="tag tag-rd">macet</span>':'',t2=c.hiRate?'<span class="tag tag-rd">bunga tinggi</span>':'',t3=c.mode==='flat'?'<span class="tag tag-yl">flat</span>':c.mode==='syariah'?'<span class="tag tag-ac">syariah</span>':'';
+const e=c.bunga&&c.mode==='flat'?effRate(c.bunga,mo(dt(c.upd),dt(c.jt))):0;
+return '<div class="c"><b>'+(i+1)+'. '+esc(c.pel)+'</b>'+t1+t2+t3+'<div class="mu">'+esc(c.tipe||'-')+' · '+esc(c.st||'-')+'</div>'
++'<div class="r"><span>Sisa / plafon</span><b>'+rp(c.saldo)+' / '+rp(c.plafon)+'</b></div>'
++'<div class="r"><span>Tunggakan</span><b class="'+(c.tg?'rd':'')+'">'+rp(c.tg)+' ('+c.hari+' hari)</b></div>'
++'<div class="r"><span>Kolektibilitas</span><b class="'+(c.kol>1?'rd':'gn')+'">'+c.kol+' - '+KL[c.kol]+'</b></div>'
++'<div class="r"><span>Bunga / jatuh tempo</span><b>'+c.bunga+'% ('+c.mode+') / '+esc(c.jt||'-')+'</b></div>'
++(e>0?'<div class="r"><span>Bunga efektif</span><b class="'+(e>100?'rd':'yl')+'">'+Math.round(e)+'%/thn</b></div>':'')
++'<div class="r"><span>Estimasi cicilan</span><b>'+(c.A?rp(c.A[0])+' – '+rp(c.A[1]):'tidak dihitung')+'</b></div></div>'}).join('');
+$('out').innerHTML='<div class="v" style="background:'+v[1]+'">'+v[0]+'<small>'+esc(d.nama)+'</small></div>'
++'<div class="kv"><div><span>Aktif</span><b>'+(d.aktif||0)+'</b></div><div><span>Ditutup</span><b>'+(d.tutup||0)+'</b></div>'
++'<div><span>Sisa utang</span><b>'+rp(d.saldo)+'</b></div><div><span>Tunggakan</span><b class="'+(d.tg?'rd':'')+'">'+rp(d.tg)+'</b></div>'
++'<div><span>Estimasi cicilan</span><b>'+(d.k.filter(c=>c.A).length?rp(d.lo)+' – '+rp(d.hi):'-')+'</b></div>'
++'<div><span>Kol. terburuk</span><b>'+d.klw+' '+KL[+d.klw]+'</b></div></div>'
++'<div class="c"><h2>Tanda bahaya</h2>'+(F.length?'<ul>'+F.map(x=>'<li class="'+x[0]+'">'+esc(x[1])+'</li>').join('')+'</ul>':'<span class="gn">Tidak ada tanda bahaya utama.</span>')+'</div>'
++'<div class="c"><h2>Identitas</h2><div class="r"><span>Nama</span><b>'+esc(d.nama)+'</b></div>'
++'<div class="r"><span>NIK</span><b>'+esc(d.nik||'-')+'</b></div><div class="r"><span>Lahir</span><b>'+esc(d.lahir||'-')+'</b></div>'
++'<div class="r"><span>Pekerjaan</span><b>'+esc(d.kerja||'-')+'</b></div><div class="r"><span>Skor</span><b>'+esc(sk)+'</b></div>'
++'<div class="r"><span>Faktor</span><b>'+esc(d.faktor||'-')+'</b></div></div>'
++'<div class="c"><h2>Ringkasan</h2><div class="r"><span>Total plafon</span><b>'+rp(d.plafon)+'</b></div>'
++'<div class="r"><span>Sisa utang</span><b>'+rp(d.saldo)+'</b></div><div class="r"><span>Tunggakan</span><b class="'+(d.tg?'rd':'')+'">'+rp(d.tg)+'</b></div>'
++'<div class="r"><span>Sisa macet</span><b class="'+(d.sisaBad?'rd':'')+'">'+rp(d.sisaBad)+'</b></div>'
++'<div class="r"><span>Total kewajiban</span><b>'+rp(d.total)+'</b></div></div>'
++'<div class="c"><h2>Kalender</h2><div class="sc"><table><tr><th></th>'+BL.map(x=>'<th>'+x.slice(0,3)+'</th>').join('')+'</tr>'+cal+'</table></div></div>'
++'<div class="c"><h2>Simulasi tambahan</h2><label class="mu">Angsuran baru (Rp)</label><input id="nb" inputmode="numeric" placeholder="1375000"><label class="mu">Penghasilan/bulan (Rp)</label><input id="pg" inputmode="numeric" placeholder="5000000"><div id="sim"></div></div>'
++'<div class="c"><h2>Export</h2><div class="ex"><button id="xp">PDF</button><button id="xc">CSV</button><button id="xt">TXT</button></div></div>'
++'<h2>Kontrak aktif</h2>'+kk;
+const sim=()=>{const b=n(($('nb').value||'').replace(/\D/g,'')),p=n(($('pg').value||'').replace(/\D/g,''));
+const a=d.lo+b,z=d.hi+b;
+let h='<div class="r"><span>Total setelah tambahan</span><b>'+rp(a)+' – '+rp(z)+'</b></div><div class="r"><span>Penghasilan minimal (40%)</span><b>'+rp(a/.4)+' – '+rp(z/.4)+'</b></div>';
+if(p){const r1=a/p*100,r2=z/p*100,cl=r1>40?'rd':r1>30?'yl':'gn',co=r1>40?'#c62828':r1>30?'#b7791f':'#2e7d32';
+h+='<div class="r"><span>DTI</span><b class="'+cl+'">'+Math.round(r1)+'% – '+Math.round(r2)+'%</b></div><div class="bar"><span style="width:'+Math.min(100,r2)+'%;background:'+co+'"></span><i style="left:30%"></i><i style="left:40%"></i><i style="left:50%"></i></div>';
+h+='<div class="note">'+(r1>40?'<span class="rd">Beban melebihi batas wajar 40%. Sebaiknya tidak ambil tambahan.</span>':r1>30?'<span class="yl">Mendekati batas wajar.</span>':'<span class="gn">Masih dalam batas wajar.</span>')+'</div>'}
+$('sim').innerHTML=h};$('nb').oninput=$('pg').oninput=sim;sim();
+const fn='SLIK_'+(d.nama||'debitur').replace(/\W+/g,'_'),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"';
+const csv='\ufeff'+[['No','Pelapor','Jenis','Status','Sisa','Plafon','Tunggakan','Hari','Kol','Bunga%','Mode','JT','Cicilan min','Cicilan max']]
+.concat(d.k.map((c,i)=>[i+1,c.pel,c.tipe,c.st,c.saldo,c.plafon,c.tg,c.hari,c.kol,c.bunga,c.mode,c.jt,c.A?Math.round(c.A[0]):'',c.A?Math.round(c.A[1]):'']))
+.map(r=>r.map(q).join(',')).join('\n');
+const txt=['ANALISA SLIK - '+v[0],'Nama: '+d.nama,'NIK: '+d.nik,'Skor: '+sk,'Kontrak: '+d.aktif+'/'+d.tutup,'Plafon: '+rp(d.plafon),'Sisa: '+rp(d.saldo),'Tunggakan: '+rp(d.tg),'Sisa macet: '+rp(d.sisaBad),'Total kewajiban: '+rp(d.total),'Estimasi cicilan: '+rp(d.lo)+' – '+rp(d.hi),'','Tanda bahaya:'].concat(F.map(x=>'- '+x[1])).join('\n');
+const sv=(name,data)=>{const bl=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});const u=URL.createObjectURL(bl),k=document.createElement('a');k.href=u;k.download=name;document.body.appendChild(k);k.click();k.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)};
+$('xp').onclick=()=>{try{const J=window.jspdf;if(!J)throw new Error('PDF lib belum termuat');const doc=new J.jsPDF({unit:'pt',format:'a4'}),W=595,X=40;let y=50;
+const pg=h=>{if(y+h>800){doc.addPage();y=50}};
+const T=(t,z=10,b=0,c=[30,30,30])=>{doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(z);doc.setTextColor(c[0],c[1],c[2]);doc.splitTextToSize(String(t),W-2*X).forEach(l=>{pg(z+5);doc.text(l,X,y);y+=z+5})};
+const H=t=>{y+=6;T(t,12,1,[15,118,110])};const R=(a,b)=>{doc.setFontSize(10);const vs=doc.splitTextToSize(String(b),320);pg(15);doc.setFont('helvetica','normal');doc.setTextColor(100);doc.text(String(a),X,y);doc.setFont('helvetica','bold');doc.setTextColor(30);vs.forEach((l,i)=>{if(i)pg(14);doc.text(l,W-X,y,{align:'right'});y+=14})};
+T('Analisa SLIK - '+(d.nama||''),16,1);y+=6;
+H('Identitas');R('Nama',d.nama);R('NIK',d.nik);R('Skor',sk);R('Kemungkinan DPD 90+',(d.dpd||'-')+'%');
+H('Ringkasan');R('Kontrak aktif/ditutup',d.aktif+'/'+d.tutup);R('Total plafon',rp(d.plafon));R('Sisa utang',rp(d.saldo));R('Tunggakan',rp(d.tg));R('Sisa macet',rp(d.sisaBad));R('Total kewajiban',rp(d.total));R('Estimasi cicilan',rp(d.lo)+' – '+rp(d.hi));
+H('Tanda bahaya');F.forEach(x=>T('- '+x[1]));
+H('Kontrak aktif');d.k.forEach((c,i)=>{y+=4;pg(60);T((i+1)+'. '+c.pel,10,1);R('Sisa/plafon',rp(c.saldo)+'/'+rp(c.plafon));R('Tunggakan',rp(c.tg)+' ('+c.hari+'h)');R('Kolektibilitas',c.kol+' '+KL[c.kol]);R('Bunga/JT',c.bunga+'% ('+c.mode+') / '+c.jt);R('Estimasi',c.A?rp(c.A[0])+' – '+rp(c.A[1]):'-')});
+sv(fn+'.pdf',doc.output('blob'))}catch(e){alert('Gagal PDF: '+e.message)}};
+$('xc').onclick=()=>sv(fn+'.csv',csv);$('xt').onclick=()=>sv(fn+'.txt',txt)}
+</script></main></body></html>
