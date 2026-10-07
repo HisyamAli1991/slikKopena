@@ -14,7 +14,7 @@ main{max-width:680px;margin:0 auto}h1{font-size:20px;margin:6px 0}h2{font-size:1
 button{flex:1;padding:10px;border:1px solid var(--ac);border-radius:8px;background:transparent;color:var(--ac);font-weight:600;font-size:14px;cursor:pointer}
 input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:16px;margin:4px 0 8px}
 .tag{display:inline-block;padding:1px 6px;border-radius:6px;font-size:11px;font-weight:600;margin-left:6px}
-.tag-rd{background:#c6282822;color:var(--rd)}.tag-yl{background:#b7791f22;color:var(--yl)}.tag-ac{background:rgba(15,118,110,.14);color:var(--ac)}
+.tag-rd{background:#c6282822;color:var(--rd)}.tag-yl{background:#b7791f22;color:var(--yl)}.tag-ac{background:rgba(15,118,110,.14);color:var(--ac)}.tag-gn{background:#2e7d3222;color:var(--gn)}
 .kv{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .kv>div{background:var(--bg);padding:8px;border-radius:8px;border:1px solid var(--bd)}
 .kv>div b{display:block;font-size:13px;word-break:break-word}
@@ -24,6 +24,13 @@ input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;backg
 .bar>span{display:block;height:100%}.bar>i{position:absolute;top:0;bottom:0;width:1px;background:var(--tx);opacity:.4}
 footer{text-align:center;font-size:11px;color:var(--mu);margin:20px 0 40px}
 .ex{display:flex;gap:8px;flex-wrap:wrap}.ex button{min-width:calc(50% - 4px)}
+details{border-top:1px solid var(--bd);padding-top:6px;margin-top:6px}
+details>summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ac);padding:3px 0;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸ "}details[open]>summary::before{content:"▾ "}
+.ag{border:1px solid var(--bd);border-radius:8px;padding:8px;margin-top:6px;background:var(--bg)}
+.ag h4{margin:0 0 4px;font-size:13px;color:var(--ac)}
+.ag .r{font-size:12px;padding:2px 0}
 </style></head><body><main>
 <h1>Analisa SLIK</h1>
 <p class="mu">Khusus PEFINDO IdScore+. File dibaca di HP saja, tidak dikirim ke server.</p>
@@ -46,6 +53,7 @@ const flat=(p,r,m)=>!p||!m?0:p*(1+(r/100)*(m/12))/m;
 const mode=(r,t)=>{const s=(t||'').toLowerCase();if(/bagi hasil|murabahah|syariah/.test(s))return 'syariah';if(r>=40)return 'flat';return 'efektif'};
 const est=(p,r,m,md)=>{if(!p||!m||m<=0)return null;const a=ann(p,r,m),f=flat(p,r,m);if(md==='syariah')return[f,f];return[Math.min(a,f),Math.max(a,f)]};
 const effRate=(r,m)=>{if(!r||!m)return 0;const t=r*m/12;return(Math.pow(1+t/m,m)-1)*1200};
+const fmtRp=v=>v?'Rp '+Number(v).toLocaleString('id-ID'):'-';
 async function lines(pg){const tc=await pg.getTextContent(),rows=[];for(const it of tc.items){const s=it.str.trim();if(!s)continue;const y=Math.round(it.transform[5]);let r=rows.find(r=>Math.abs(r.y-y)<=2);if(!r){r={y,a:[]};rows.push(r)}r.a.push([it.transform[4],s])}rows.sort((a,b)=>b.y-a.y);return rows.map(r=>{r.a.sort((p,q)=>p[0]-q[0]);return(r.a[0][0]>125?'¦  ':'')+r.a.map(x=>x[1]).join('  ')})}
 $('f').onchange=async e=>{const file=e.target.files[0];if(!file)return;$('out').innerHTML='';
 try{$('st').textContent='Membaca...';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
@@ -54,6 +62,30 @@ if(l.some(x=>x.includes('Kontrak Ditutup sebagai Debitur')))break;if(l.some(x=>x
 const S=x=>x.replace(/^¦\s*/,''),T=L.map(S).join('\n');
 if(!T.includes('IdScore'))throw new Error('Bukan laporan PEFINDO IdScore+, atau PDF hasil scan.');
 render(parse(T,p1.map(S),L.join('\n')));$('st').textContent='Selesai.'}catch(x){$('st').innerHTML='<span class="rd">Gagal: '+esc(x.message||x)+'</span>'}};
+
+function parseAgunan(block){
+  if(!block)return null;
+  const parts=block.split(/\d+\.\s*Detail Agunan/).slice(1);
+  const items=[];
+  for(const p of parts){
+    const a={};
+    const grab=(label)=>{const re=new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s+(.+?)(?=\\s{2,}|\\n|$)','i');const m=p.match(re);return m?m[1].trim():''};
+    const kode=grab('Kode agunan');if(kode)a.kode=kode;
+    const tipe=grab('Tipe agunan');if(tipe)a.tipe=tipe;
+    if(!a.tipe){const t=p.match(/^\s*(Rumah|Tanah|Kendaraan|Bangunan|Deposito|Emas|Mesin|Piutang|Persediaan|Lainnya)/im);if(t)a.tipe=t[1]}
+    const pem=grab('Nama pemilik');if(pem&&pem!=='-')a.pemilik=pem;
+    const njop=grab('Nilai agunan sesuai NJOP');if(njop){const v=n(njop.replace(/[^\d]/g,''));if(v)a.njop=v}
+    const pel=grab('Nilai agunan menurut pelapor');if(pel){const v=n(pel.replace(/[^\d]/g,''));if(v)a.nilai=v}
+    const sta=grab('Status agunan');if(sta&&sta!=='-')a.status=sta;
+    const asu=grab('Asuransi');if(asu&&asu!=='-')a.asuransi=asu;
+    const buk=grab('Bukti kepemilikan');if(buk&&buk!=='-')a.bukti=buk;
+    const ali=grab('Alamat');if(ali&&ali!=='-')a.alamat=ali;
+    if(!a.tipe&&!a.nilai&&!a.pemilik&&!a.kode)continue;
+    items.push(a);
+  }
+  return items.length?items:null;
+}
+
 function parse(T,p1,TM){
 const g=(re,s=T)=>{const m=s.match(re);return m?m[1].trim():''},D='(?=\\s{2}|\\n|$)';
 const nm=(()=>{const a=g(new RegExp('Nama berdasarkan identitas\\s+(.+?)'+D));if(a&&a!=='-')return a;
@@ -86,12 +118,16 @@ klw:+g(/Kolektibilitas terburuk\s+(\d)\s/,b)||1,hrw:+g(/Hari tunggakan terburuk 
 macet:g(/Tanggal macet\s+(\d\d \w{3} \d{4})/,b)};
 c.bad=/hapus/i.test(c.st)||c.klw===5;c.hiRate=c.bunga>100;c.mode=mode(c.bunga,c.tipe);
 if(!c.bad&&c.jt)c.A=est(c.saldo,c.bunga,mo(dt(c.upd),dt(c.jt)),c.mode);
+c.agunan=parseAgunan((b.split('Detail Agunan')[1]||'').split('Detail Penjamin')[0]);
 d.k.push(c)}
 if(!d.k.length&&+d.aktif>0)throw new Error('Ada '+d.aktif+' kontrak aktif tapi detail tidak terbaca.');
 const ok=d.k.filter(c=>c.A!=null);
 d.lo=ok.reduce((s,c)=>s+c.A[0],0);d.hi=ok.reduce((s,c)=>s+c.A[1],0);
 d.sisaBad=d.k.filter(c=>c.bad).reduce((s,c)=>s+c.saldo,0);
-d.total=d.saldo+d.tg+d.sisaBad;return d}
+d.total=d.saldo+d.tg+d.sisaBad;
+d.totalAgunan=d.k.reduce((s,c)=>{if(c.agunan)for(const a of c.agunan){s+=(a.nilai||a.njop||0)}return s},0);
+return d}
+
 function render(d){
 const F=[],bad=d.k.filter(c=>c.bad),tgs=d.k.filter(c=>c.tg>0),hi=d.k.filter(c=>c.hiRate&&!c.bad);
 if(d.ex)F.push(['yl','Skor tidak dapat dihitung: data 24 bulan terakhir tidak cukup. Angka 9999/XX bukan skor tinggi.']);
@@ -108,19 +144,39 @@ const ys=Object.keys(d.cal).sort().reverse();
 const cal=ys.map(y=>'<tr><th>'+y+'</th>'+d.cal[y].map(x=>'<td class="'+(x?'k'+Math.min(x[0],5):'')+'">'+(x?x[0]+'|'+x[1]:'-')+'</td>').join('')+'</tr>').join('');
 const sk=d.ex?'Tidak dapat dihitung':' '+d.skor+' / 1000 ('+d.kat+')';
 const kk=d.k.map((c,i)=>{const t1=c.bad?'<span class="tag tag-rd">macet</span>':'',t2=c.hiRate?'<span class="tag tag-rd">bunga tinggi</span>':'',t3=c.mode==='flat'?'<span class="tag tag-yl">flat</span>':c.mode==='syariah'?'<span class="tag tag-ac">syariah</span>':'';
+const t4=c.agunan?'<span class="tag tag-gn">'+c.agunan.length+' agunan</span>':'';
 const e=c.bunga&&c.mode==='flat'?effRate(c.bunga,mo(dt(c.upd),dt(c.jt))):0;
-return '<div class="c"><b>'+(i+1)+'. '+esc(c.pel)+'</b>'+t1+t2+t3+'<div class="mu">'+esc(c.tipe||'-')+' · '+esc(c.st||'-')+'</div>'
+let agHtml='';
+if(c.agunan){
+  agHtml='<details><summary>Detail agunan ('+c.agunan.length+')</summary>';
+  for(let k=0;k<c.agunan.length;k++){const a=c.agunan[k];
+    agHtml+='<div class="ag"><h4>'+(k+1)+'. '+esc(a.tipe||'Agunan')+'</h4>';
+    if(a.kode)agHtml+='<div class="r"><span>Kode</span><b>'+esc(a.kode)+'</b></div>';
+    if(a.pemilik)agHtml+='<div class="r"><span>Pemilik</span><b>'+esc(a.pemilik)+'</b></div>';
+    if(a.njop)agHtml+='<div class="r"><span>NJOP</span><b>'+fmtRp(a.njop)+'</b></div>';
+    if(a.nilai)agHtml+='<div class="r"><span>Nilai pelapor</span><b>'+fmtRp(a.nilai)+'</b></div>';
+    if(a.status)agHtml+='<div class="r"><span>Status</span><b>'+esc(a.status)+'</b></div>';
+    if(a.asuransi)agHtml+='<div class="r"><span>Asuransi</span><b>'+esc(a.asuransi)+'</b></div>';
+    if(a.bukti)agHtml+='<div class="r"><span>Bukti</span><b>'+esc(a.bukti)+'</b></div>';
+    if(a.alamat)agHtml+='<div class="r"><span>Alamat</span><b>'+esc(a.alamat)+'</b></div>';
+    agHtml+='</div>'}
+  agHtml+='</details>';
+}
+return '<div class="c"><b>'+(i+1)+'. '+esc(c.pel)+'</b>'+t1+t2+t3+t4+'<div class="mu">'+esc(c.tipe||'-')+' · '+esc(c.st||'-')+'</div>'
 +'<div class="r"><span>Sisa / plafon</span><b>'+rp(c.saldo)+' / '+rp(c.plafon)+'</b></div>'
 +'<div class="r"><span>Tunggakan</span><b class="'+(c.tg?'rd':'')+'">'+rp(c.tg)+' ('+c.hari+' hari)</b></div>'
 +'<div class="r"><span>Kolektibilitas</span><b class="'+(c.kol>1?'rd':'gn')+'">'+c.kol+' - '+KL[c.kol]+'</b></div>'
 +'<div class="r"><span>Bunga / jatuh tempo</span><b>'+c.bunga+'% ('+c.mode+') / '+esc(c.jt||'-')+'</b></div>'
 +(e>0?'<div class="r"><span>Bunga efektif</span><b class="'+(e>100?'rd':'yl')+'">'+Math.round(e)+'%/thn</b></div>':'')
-+'<div class="r"><span>Estimasi cicilan</span><b>'+(c.A?rp(c.A[0])+' – '+rp(c.A[1]):'tidak dihitung')+'</b></div></div>'}).join('');
++'<div class="r"><span>Estimasi cicilan</span><b>'+(c.A?rp(c.A[0])+' – '+rp(c.A[1]):'tidak dihitung')+'</b></div>'
++agHtml+'</div>'}).join('');
 $('out').innerHTML='<div class="v" style="background:'+v[1]+'">'+v[0]+'<small>'+esc(d.nama)+'</small></div>'
 +'<div class="kv"><div><span>Aktif</span><b>'+(d.aktif||0)+'</b></div><div><span>Ditutup</span><b>'+(d.tutup||0)+'</b></div>'
 +'<div><span>Sisa utang</span><b>'+rp(d.saldo)+'</b></div><div><span>Tunggakan</span><b class="'+(d.tg?'rd':'')+'">'+rp(d.tg)+'</b></div>'
 +'<div><span>Estimasi cicilan</span><b>'+(d.k.filter(c=>c.A).length?rp(d.lo)+' – '+rp(d.hi):'-')+'</b></div>'
-+'<div><span>Kol. terburuk</span><b>'+d.klw+' '+KL[+d.klw]+'</b></div></div>'
++'<div><span>Kol. terburuk</span><b>'+d.klw+' '+KL[+d.klw]+'</b></div>'
++(d.totalAgunan?'<div><span>Total agunan</span><b>'+fmtRp(d.totalAgunan)+'</b></div>':'')
++'</div>'
 +'<div class="c"><h2>Tanda bahaya</h2>'+(F.length?'<ul>'+F.map(x=>'<li class="'+x[0]+'">'+esc(x[1])+'</li>').join('')+'</ul>':'<span class="gn">Tidak ada tanda bahaya utama.</span>')+'</div>'
 +'<div class="c"><h2>Identitas</h2><div class="r"><span>Nama</span><b>'+esc(d.nama)+'</b></div>'
 +'<div class="r"><span>NIK</span><b>'+esc(d.nik||'-')+'</b></div><div class="r"><span>Lahir</span><b>'+esc(d.lahir||'-')+'</b></div>'
@@ -129,7 +185,9 @@ $('out').innerHTML='<div class="v" style="background:'+v[1]+'">'+v[0]+'<small>'+
 +'<div class="c"><h2>Ringkasan</h2><div class="r"><span>Total plafon</span><b>'+rp(d.plafon)+'</b></div>'
 +'<div class="r"><span>Sisa utang</span><b>'+rp(d.saldo)+'</b></div><div class="r"><span>Tunggakan</span><b class="'+(d.tg?'rd':'')+'">'+rp(d.tg)+'</b></div>'
 +'<div class="r"><span>Sisa macet</span><b class="'+(d.sisaBad?'rd':'')+'">'+rp(d.sisaBad)+'</b></div>'
-+'<div class="r"><span>Total kewajiban</span><b>'+rp(d.total)+'</b></div></div>'
++'<div class="r"><span>Total kewajiban</span><b>'+rp(d.total)+'</b></div>'
++(d.totalAgunan?'<div class="r"><span>Total nilai agunan</span><b>'+fmtRp(d.totalAgunan)+'</b></div>':'')
++'</div>'
 +'<div class="c"><h2>Kalender</h2><div class="sc"><table><tr><th></th>'+BL.map(x=>'<th>'+x.slice(0,3)+'</th>').join('')+'</tr>'+cal+'</table></div></div>'
 +'<div class="c"><h2>Simulasi tambahan</h2><label class="mu">Angsuran baru (Rp)</label><input id="nb" inputmode="numeric" placeholder="1375000"><label class="mu">Penghasilan/bulan (Rp)</label><input id="pg" inputmode="numeric" placeholder="5000000"><div id="sim"></div></div>'
 +'<div class="c"><h2>Export</h2><div class="ex"><button id="xp">PDF</button><button id="xc">CSV</button><button id="xt">TXT</button></div></div>'
@@ -142,10 +200,11 @@ h+='<div class="r"><span>DTI</span><b class="'+cl+'">'+Math.round(r1)+'% – '+M
 h+='<div class="note">'+(r1>40?'<span class="rd">Beban melebihi batas wajar 40%. Sebaiknya tidak ambil tambahan.</span>':r1>30?'<span class="yl">Mendekati batas wajar.</span>':'<span class="gn">Masih dalam batas wajar.</span>')+'</div>'}
 $('sim').innerHTML=h};$('nb').oninput=$('pg').oninput=sim;sim();
 const fn='SLIK_'+(d.nama||'debitur').replace(/\W+/g,'_'),q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"';
-const csv='\ufeff'+[['No','Pelapor','Jenis','Status','Sisa','Plafon','Tunggakan','Hari','Kol','Bunga%','Mode','JT','Cicilan min','Cicilan max']]
-.concat(d.k.map((c,i)=>[i+1,c.pel,c.tipe,c.st,c.saldo,c.plafon,c.tg,c.hari,c.kol,c.bunga,c.mode,c.jt,c.A?Math.round(c.A[0]):'',c.A?Math.round(c.A[1]):'']))
+const csv='\ufeff'+[['No','Pelapor','Jenis','Status','Sisa','Plafon','Tunggakan','Hari','Kol','Bunga%','Mode','JT','Cicilan min','Cicilan max','Agunan','Nilai agunan']]
+.concat(d.k.map((c,i)=>{const ag=c.agunan?c.agunan.map(a=>(a.tipe||'-')+' milik '+(a.pemilik||'-')).join('; '):'';const tot=c.agunan?c.agunan.reduce((s,a)=>s+(a.nilai||a.njop||0),0):'';
+return[i+1,c.pel,c.tipe,c.st,c.saldo,c.plafon,c.tg,c.hari,c.kol,c.bunga,c.mode,c.jt,c.A?Math.round(c.A[0]):'',c.A?Math.round(c.A[1]):'',ag,tot]}))
 .map(r=>r.map(q).join(',')).join('\n');
-const txt=['ANALISA SLIK - '+v[0],'Nama: '+d.nama,'NIK: '+d.nik,'Skor: '+sk,'Kontrak: '+d.aktif+'/'+d.tutup,'Plafon: '+rp(d.plafon),'Sisa: '+rp(d.saldo),'Tunggakan: '+rp(d.tg),'Sisa macet: '+rp(d.sisaBad),'Total kewajiban: '+rp(d.total),'Estimasi cicilan: '+rp(d.lo)+' – '+rp(d.hi),'','Tanda bahaya:'].concat(F.map(x=>'- '+x[1])).join('\n');
+const txt=['ANALISA SLIK - '+v[0],'Nama: '+d.nama,'NIK: '+d.nik,'Skor: '+sk,'Kontrak: '+d.aktif+'/'+d.tutup,'Plafon: '+rp(d.plafon),'Sisa: '+rp(d.saldo),'Tunggakan: '+rp(d.tg),'Sisa macet: '+rp(d.sisaBad),'Total kewajiban: '+rp(d.total),'Total agunan: '+fmtRp(d.totalAgunan),'Estimasi cicilan: '+rp(d.lo)+' – '+rp(d.hi),'','Tanda bahaya:'].concat(F.map(x=>'- '+x[1])).join('\n');
 const sv=(name,data)=>{const bl=data instanceof Blob?data:new Blob([data],{type:'text/plain;charset=utf-8'});const u=URL.createObjectURL(bl),k=document.createElement('a');k.href=u;k.download=name;document.body.appendChild(k);k.click();k.remove();setTimeout(()=>URL.revokeObjectURL(u),5000)};
 $('xp').onclick=()=>{try{const J=window.jspdf;if(!J)throw new Error('PDF lib belum termuat');const doc=new J.jsPDF({unit:'pt',format:'a4'}),W=595,X=40;let y=50;
 const pg=h=>{if(y+h>800){doc.addPage();y=50}};
@@ -153,9 +212,10 @@ const T=(t,z=10,b=0,c=[30,30,30])=>{doc.setFont('helvetica',b?'bold':'normal');d
 const H=t=>{y+=6;T(t,12,1,[15,118,110])};const R=(a,b)=>{doc.setFontSize(10);const vs=doc.splitTextToSize(String(b),320);pg(15);doc.setFont('helvetica','normal');doc.setTextColor(100);doc.text(String(a),X,y);doc.setFont('helvetica','bold');doc.setTextColor(30);vs.forEach((l,i)=>{if(i)pg(14);doc.text(l,W-X,y,{align:'right'});y+=14})};
 T('Analisa SLIK - '+(d.nama||''),16,1);y+=6;
 H('Identitas');R('Nama',d.nama);R('NIK',d.nik);R('Skor',sk);R('Kemungkinan DPD 90+',(d.dpd||'-')+'%');
-H('Ringkasan');R('Kontrak aktif/ditutup',d.aktif+'/'+d.tutup);R('Total plafon',rp(d.plafon));R('Sisa utang',rp(d.saldo));R('Tunggakan',rp(d.tg));R('Sisa macet',rp(d.sisaBad));R('Total kewajiban',rp(d.total));R('Estimasi cicilan',rp(d.lo)+' – '+rp(d.hi));
+H('Ringkasan');R('Kontrak aktif/ditutup',d.aktif+'/'+d.tutup);R('Total plafon',rp(d.plafon));R('Sisa utang',rp(d.saldo));R('Tunggakan',rp(d.tg));R('Sisa macet',rp(d.sisaBad));R('Total kewajiban',rp(d.total));R('Total agunan',fmtRp(d.totalAgunan));R('Estimasi cicilan',rp(d.lo)+' – '+rp(d.hi));
 H('Tanda bahaya');F.forEach(x=>T('- '+x[1]));
-H('Kontrak aktif');d.k.forEach((c,i)=>{y+=4;pg(60);T((i+1)+'. '+c.pel,10,1);R('Sisa/plafon',rp(c.saldo)+'/'+rp(c.plafon));R('Tunggakan',rp(c.tg)+' ('+c.hari+'h)');R('Kolektibilitas',c.kol+' '+KL[c.kol]);R('Bunga/JT',c.bunga+'% ('+c.mode+') / '+c.jt);R('Estimasi',c.A?rp(c.A[0])+' – '+rp(c.A[1]):'-')});
+H('Kontrak aktif');d.k.forEach((c,i)=>{y+=4;pg(60);T((i+1)+'. '+c.pel,10,1);R('Sisa/plafon',rp(c.saldo)+'/'+rp(c.plafon));R('Tunggakan',rp(c.tg)+' ('+c.hari+'h)');R('Kolektibilitas',c.kol+' '+KL[c.kol]);R('Bunga/JT',c.bunga+'% ('+c.mode+') / '+c.jt);R('Estimasi',c.A?rp(c.A[0])+' – '+rp(c.A[1]):'-');
+if(c.agunan){T('  Agunan:',9,1);c.agunan.forEach(a=>{let s='  - '+(a.tipe||'Agunan');if(a.pemilik)s+=' milik '+a.pemilik;if(a.nilai)s+=' ('+fmtRp(a.nilai)+')';T(s,9,0,[80,80,80])})}});
 sv(fn+'.pdf',doc.output('blob'))}catch(e){alert('Gagal PDF: '+e.message)}};
 $('xc').onclick=()=>sv(fn+'.csv',csv);$('xt').onclick=()=>sv(fn+'.txt',txt)}
 </script></main></body></html>
